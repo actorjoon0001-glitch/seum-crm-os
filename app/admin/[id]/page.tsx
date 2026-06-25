@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createServiceClient, hasSupabaseEnv } from "@/lib/supabase/server";
+import {
+  createServiceClient,
+  hasSupabaseEnv,
+  CUSTOMERS_TABLE,
+  EVENTS_TABLE,
+} from "@/lib/supabase/server";
 import { formatDateTime } from "@/lib/format";
 import {
   SOURCE_LABEL,
@@ -28,7 +33,7 @@ export default async function CustomerDetail({
 
   const supabase = createServiceClient();
   const { data } = await supabase
-    .from("customers")
+    .from(CUSTOMERS_TABLE)
     .select("*")
     .eq("id", params.id)
     .single();
@@ -37,7 +42,7 @@ export default async function CustomerDetail({
   const c = data as Customer;
 
   const { data: events } = await supabase
-    .from("customer_events")
+    .from(EVENTS_TABLE)
     .select("*")
     .eq("customer_id", c.id)
     .order("created_at", { ascending: false })

@@ -1,6 +1,6 @@
 "use server";
 
-import { createAnonClient } from "@/lib/supabase/server";
+import { createAnonClient, CUSTOMERS_TABLE } from "@/lib/supabase/server";
 
 export interface ReserveResult {
   ok: boolean;
@@ -25,7 +25,7 @@ export async function submitReservation(
 
   try {
     const supabase = createAnonClient();
-    const { error } = await supabase.from("customers").insert({
+    const { error } = await supabase.from(CUSTOMERS_TABLE).insert({
       source: "visit",
       status: "new",
       name,

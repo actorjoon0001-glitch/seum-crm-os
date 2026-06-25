@@ -1,5 +1,9 @@
 import Link from "next/link";
-import { createServiceClient, hasSupabaseEnv } from "@/lib/supabase/server";
+import {
+  createServiceClient,
+  hasSupabaseEnv,
+  CUSTOMERS_TABLE,
+} from "@/lib/supabase/server";
 import { formatDateTime } from "@/lib/format";
 import {
   SOURCE_LABEL,
@@ -62,7 +66,7 @@ export default async function AdminPage({
   const q = (searchParams.q ?? "").trim();
 
   let query = supabase
-    .from("customers")
+    .from(CUSTOMERS_TABLE)
     .select("*")
     .order("created_at", { ascending: false })
     .limit(200);
@@ -76,7 +80,7 @@ export default async function AdminPage({
 
   // 전체 통계(필터 무관)
   const { data: allRows } = await supabase
-    .from("customers")
+    .from(CUSTOMERS_TABLE)
     .select("source,status");
   const stats = computeStats((allRows ?? []) as Pick<Customer, "source" | "status">[]);
 

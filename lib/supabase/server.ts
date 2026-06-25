@@ -1,6 +1,15 @@
 import { createClient } from "@supabase/supabase-js";
 
 /**
+ * 통합 고객 테이블 이름. 기존 방문예약폼이 다른 테이블명을 쓰는 경우
+ * .env.local 에 SUPABASE_CUSTOMERS_TABLE 로 지정하면 됩니다.
+ */
+export const CUSTOMERS_TABLE =
+  process.env.SUPABASE_CUSTOMERS_TABLE || "customers";
+export const EVENTS_TABLE =
+  process.env.SUPABASE_EVENTS_TABLE || "customer_events";
+
+/**
  * 서버 전용 Supabase 클라이언트.
  * service_role 키를 사용하므로 RLS를 우회하여 고객 조회/수정이 가능합니다.
  * 절대 클라이언트 컴포넌트에서 import 하지 마세요.
