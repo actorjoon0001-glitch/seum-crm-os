@@ -11,6 +11,7 @@ type Search = {
   q?: string;
   showroom?: string;
   urgent?: string;
+  photos?: string;
   page?: string;
 };
 
@@ -52,9 +53,27 @@ export default async function AdminPage({
   const q = (searchParams.q ?? "").trim();
   const showroom = (searchParams.showroom ?? "").trim();
   const urgent = searchParams.urgent === "1";
+  const hasPhotos = searchParams.photos === "1";
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
+
+  // "사진 있는 계약만" 필터: 도면이 붙은 local_id 목록을 먼저 구함
+  let photoLocalIds: string[] | null = null;
+  if (hasPhotos) {
+    const { data: dRows } = await supabase
+      .from(DRAWINGS_TABLE)
+      .select("contract_local_id")
+      .not("contract_local_id", "is", null);
+    photoLocalIds = Array.from(
+      new Set(
+        (dRows ?? [])
+          .map((r) => (r as { contract_local_id: string }).contract_local_id)
+          .filter(Boolean)
+      )
+    );
+    if (photoLocalIds.length === 0) photoLocalIds = ["__none__"];
+  }
 
   let query = supabase
     .from(CONTRACTS_TABLE)
@@ -70,6 +89,7 @@ export default async function AdminPage({
   if (q) query = query.or(`customer_name.ilike.%${q}%,sales_person.ilike.%${q}%,model_name.ilike.%${q}%`);
   if (showroom) query = query.eq("showroom_id", showroom);
   if (urgent) query = query.eq("is_urgent", true);
+  if (photoLocalIds) query = query.in("local_id", photoLocalIds);
 
   const { data, error, count } = await query;
   const contracts = (data ?? []) as Partial<Contract>[];
@@ -104,7 +124,13 @@ export default async function AdminPage({
         <StatCard label="이번달 계약" value={stats.thisMonth} accent="text-purple-600" />
       </div>
 
-      <Filters q={q} showroom={showroom} urgent={urgent} showrooms={stats.showrooms} />
+      <Filters
+        q={q}
+        showroom={showroom}
+        urgent={urgent}
+        hasPhotos={hasPhotos}
+        showrooms={stats.showrooms}
+      />
 
       {error ? (
         <div className="mt-6 rounded-xl bg-red-50 p-4 text-sm text-red-600">
@@ -119,7 +145,7 @@ export default async function AdminPage({
           <Pagination
             page={page}
             totalPages={totalPages}
-            params={{ q, showroom, urgent: urgent ? "1" : "" }}
+            params={{ q, showroom, urgent: urgent ? "1" : "", photos: hasPhotos ? "1" : "" }}
           />
         </>
       )}
@@ -213,11 +239,13 @@ function Filters({
   q,
   showroom,
   urgent,
+  hasPhotos,
   showrooms,
 }: {
   q: string;
   showroom: string;
   urgent: boolean;
+  hasPhotos: boolean;
   showrooms: string[];
 }) {
   return (
@@ -244,10 +272,14 @@ function Filters({
         <input type="checkbox" name="urgent" value="1" defaultChecked={urgent} />
         긴급만
       </label>
+      <label className="flex items-center gap-1.5 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm">
+        <input type="checkbox" name="photos" value="1" defaultChecked={hasPhotos} />
+        📷 사진있는 계약만
+      </label>
       <button className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white">
         검색
       </button>
-      {(q || showroom || urgent) && (
+      {(q || showroom || urgent || hasPhotos) && (
         <Link href="/admin" className="text-sm text-gray-400 hover:text-gray-600">
           초기화
         </Link>
