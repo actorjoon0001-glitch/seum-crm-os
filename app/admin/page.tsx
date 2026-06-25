@@ -344,9 +344,12 @@ function ContractTable({
                 </td>
                 <td className="px-4 py-3 text-center">
                   {photos > 0 ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-seum-light px-2 py-0.5 text-xs font-semibold text-seum-dark">
+                    <Link
+                      href={`/admin/${c.id}`}
+                      className="inline-flex items-center gap-1 rounded-full bg-seum-light px-2 py-0.5 text-xs font-semibold text-seum-dark hover:bg-seum hover:text-white"
+                    >
                       📷 {photos}
-                    </span>
+                    </Link>
                   ) : (
                     <span className="text-xs text-gray-300">-</span>
                   )}

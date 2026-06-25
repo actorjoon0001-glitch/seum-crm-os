@@ -8,17 +8,9 @@ import {
 } from "@/lib/supabase/server";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 import { PROGRESS_FLAGS, type Contract, type ContractDrawing } from "@/lib/types";
+import DrawingGallery from "./DrawingGallery";
 
 export const dynamic = "force-dynamic";
-
-const IMAGE_EXT = /\.(jpe?g|png|gif|webp|bmp|heic|heif)$/i;
-
-function isImage(d: ContractDrawing): boolean {
-  const target = d.file_name || d.url || d.path || "";
-  if (IMAGE_EXT.test(target)) return true;
-  // 확장자가 없어도 kind 가 이미지/도면 류면 이미지로 시도
-  return !/\.(pdf|hwp|docx?|xlsx?|zip)$/i.test(target);
-}
 
 export default async function ContractDetail({
   params,
@@ -122,60 +114,11 @@ export default async function ContractDetail({
         </div>
       </Section>
 
-      {/* 계약서 사진 */}
-      <Section title={`계약서 사진 (${drawings.length})`}>
-        {drawings.length === 0 ? (
-          <p className="text-sm text-gray-400">첨부된 계약서 사진이 없습니다.</p>
-        ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {drawings.map((d) => (
-              <DrawingCard key={d.id} drawing={d} />
-            ))}
-          </div>
-        )}
+      {/* 계약서 사진/파일 */}
+      <Section title={`계약서 파일 (${drawings.length})`}>
+        <DrawingGallery drawings={drawings} />
       </Section>
     </main>
-  );
-}
-
-function DrawingCard({ drawing: d }: { drawing: ContractDrawing }) {
-  const href = d.url || d.path || "#";
-  const label = d.file_name || d.kind || "첨부파일";
-  const image = isImage(d) && d.url;
-
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      className="group block overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:border-seum hover:shadow-md"
-    >
-      <div className="flex aspect-[4/3] items-center justify-center bg-gray-50">
-        {image ? (
-          // 외부 이미지 — next/image 도메인 설정 불필요하도록 일반 img 사용
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={d.url as string}
-            alt={label}
-            className="h-full w-full object-cover transition group-hover:scale-[1.02]"
-            loading="lazy"
-          />
-        ) : (
-          <div className="flex flex-col items-center text-gray-400">
-            <span className="text-3xl">📄</span>
-            <span className="mt-1 text-xs">파일 열기</span>
-          </div>
-        )}
-      </div>
-      <div className="truncate px-3 py-2 text-xs text-gray-600" title={label}>
-        {d.kind && (
-          <span className="mr-1 rounded bg-gray-100 px-1 py-0.5 text-[10px] text-gray-500">
-            {d.kind}
-          </span>
-        )}
-        {label}
-      </div>
-    </a>
   );
 }
 
