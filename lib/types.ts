@@ -52,3 +52,21 @@ export const PROGRESS_FLAGS: {
   { key: "final_approved", label: "최종승인" },
   { key: "construction_start_ok", label: "착공가능" },
 ];
+
+// 전시장(showroom_id) 영문 코드 → 한글 표시명
+export const SHOWROOM_LABEL: Record<string, string> = {
+  ganghwa: "강화전시장",
+  headquarters: "본사전시장",
+  showroom1: "1전시장",
+  showroom2: "2전시장",
+  showroom3: "3전시장",
+  showroom4: "4전시장",
+};
+
+export function showroomLabel(id: string | null | undefined): string {
+  if (!id) return "-";
+  if (SHOWROOM_LABEL[id]) return SHOWROOM_LABEL[id];
+  const m = id.match(/^showroom(\d+)$/i);
+  if (m) return `${m[1]}전시장`;
+  return id;
+}

@@ -7,7 +7,7 @@ import {
   DRAWINGS_TABLE,
 } from "@/lib/supabase/server";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
-import { PROGRESS_FLAGS, type Contract, type ContractDrawing } from "@/lib/types";
+import { PROGRESS_FLAGS, showroomLabel, type Contract, type ContractDrawing } from "@/lib/types";
 import DrawingGallery from "./DrawingGallery";
 
 export const dynamic = "force-dynamic";
@@ -63,7 +63,8 @@ export default async function ContractDetail({
             )}
           </div>
           <p className="mt-1 text-sm text-gray-500">
-            {c.showroom_id || "매장 미지정"} · 계약일 {formatDate(c.contract_date)}
+            {c.showroom_id ? showroomLabel(c.showroom_id) : "전시장 미지정"} · 계약일{" "}
+            {formatDate(c.contract_date)}
           </p>
         </div>
         <div className="text-right">

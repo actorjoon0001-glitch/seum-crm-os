@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createServiceClient, hasSupabaseEnv, CONTRACTS_TABLE, DRAWINGS_TABLE } from "@/lib/supabase/server";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { Contract } from "@/lib/types";
+import { showroomLabel } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -261,10 +262,10 @@ function Filters({
         defaultValue={showroom}
         className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-seum"
       >
-        <option value="">전체 매장</option>
+        <option value="">전체 전시장</option>
         {showrooms.map((s) => (
           <option key={s} value={s}>
-            {s}
+            {showroomLabel(s)}
           </option>
         ))}
       </select>
@@ -309,7 +310,7 @@ function ContractTable({
         <thead className="border-b border-gray-100 bg-gray-50 text-xs uppercase text-gray-500">
           <tr>
             <th className="px-4 py-3 font-medium">고객</th>
-            <th className="px-4 py-3 font-medium">매장</th>
+            <th className="px-4 py-3 font-medium">전시장</th>
             <th className="px-4 py-3 font-medium">모델</th>
             <th className="px-4 py-3 font-medium">영업</th>
             <th className="px-4 py-3 font-medium">계약일</th>
@@ -335,7 +336,7 @@ function ContractTable({
                     </span>
                   )}
                 </td>
-                <td className="px-4 py-3 text-xs text-gray-500">{c.showroom_id || "-"}</td>
+                <td className="px-4 py-3 text-xs text-gray-500">{showroomLabel(c.showroom_id)}</td>
                 <td className="px-4 py-3 text-xs text-gray-500">{c.model_name || "-"}</td>
                 <td className="px-4 py-3 text-xs text-gray-500">{c.sales_person || "-"}</td>
                 <td className="px-4 py-3 text-xs text-gray-500">{formatDate(c.contract_date ?? null)}</td>
