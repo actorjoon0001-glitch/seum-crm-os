@@ -7,17 +7,15 @@ export interface ReserveResult {
   error?: string;
 }
 
+// 방문예약 신청 → customers 테이블에 저장 (source='visit').
+// 세움 customers 스키마: name, phone, address, source, status, sales_person
 export async function submitReservation(
   _prev: ReserveResult | null,
   formData: FormData
 ): Promise<ReserveResult> {
   const name = String(formData.get("name") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim();
-  const preferredAt = String(formData.get("preferred_at") ?? "").trim();
-  const purpose = String(formData.get("purpose") ?? "").trim();
-  const channel = String(formData.get("channel") ?? "").trim();
-  const memo = String(formData.get("memo") ?? "").trim();
+  const address = String(formData.get("address") ?? "").trim();
 
   if (!name || !phone) {
     return { ok: false, error: "이름과 연락처는 필수 입력입니다." };
@@ -26,15 +24,11 @@ export async function submitReservation(
   try {
     const supabase = createAnonClient();
     const { error } = await supabase.from(CUSTOMERS_TABLE).insert({
-      source: "visit",
-      status: "new",
       name,
       phone,
-      email: email || null,
-      preferred_at: preferredAt ? new Date(preferredAt).toISOString() : null,
-      purpose: purpose || null,
-      channel: channel || null,
-      memo: memo || null,
+      address: address || null,
+      source: "visit",
+      status: "new",
     });
 
     if (error) {

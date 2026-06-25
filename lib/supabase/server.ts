@@ -1,13 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
 
-/**
- * 통합 고객 테이블 이름. 기존 방문예약폼이 다른 테이블명을 쓰는 경우
- * .env.local 에 SUPABASE_CUSTOMERS_TABLE 로 지정하면 됩니다.
- */
+// 세움 기존 DB 테이블명. 필요 시 .env.local 에서 덮어쓸 수 있습니다.
+export const CONTRACTS_TABLE =
+  process.env.SUPABASE_CONTRACTS_TABLE || "contracts";
+export const DRAWINGS_TABLE =
+  process.env.SUPABASE_DRAWINGS_TABLE || "contract_drawings";
+// 방문예약(향후) 저장용 고객 테이블
 export const CUSTOMERS_TABLE =
   process.env.SUPABASE_CUSTOMERS_TABLE || "customers";
-export const EVENTS_TABLE =
-  process.env.SUPABASE_EVENTS_TABLE || "customer_events";
 
 /**
  * 서버 전용 Supabase 클라이언트.

@@ -10,7 +10,8 @@ export default function Home() {
         고객관리<span className="text-seum">OS</span>
       </h1>
       <p className="mt-4 max-w-xl text-lg text-gray-600">
-        방문예약폼 고객과 call-os 고객을 한 곳에서 통합 관리합니다.
+        수기 계약 고객과 계약서 사진을 한 곳에서 확인하고, 방문예약·call-os
+        고객까지 통합 관리합니다.
       </p>
 
       <div className="mt-10 grid w-full gap-4 sm:grid-cols-2">
@@ -21,7 +22,7 @@ export default function Home() {
           <div className="text-sm font-medium text-seum">관리자</div>
           <div className="mt-1 text-xl font-bold">고객관리 대시보드</div>
           <p className="mt-2 text-sm text-gray-500">
-            예약·상담 현황을 보고 단계별로 관리하세요.
+            수기 계약 고객 목록과 계약서 사진을 확인하세요.
           </p>
           <span className="mt-4 inline-block text-sm font-semibold text-seum group-hover:underline">
             대시보드 열기 →

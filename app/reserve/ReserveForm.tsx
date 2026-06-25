@@ -63,59 +63,12 @@ export default function ReserveForm() {
 
       <div>
         <label className="mb-1 block text-sm font-medium text-gray-700">
-          이메일
+          주소 / 방문 희망 매장
         </label>
         <input
-          name="email"
-          type="email"
+          name="address"
           className={inputClass}
-          placeholder="example@email.com"
-        />
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm font-medium text-gray-700">
-          희망 방문일시
-        </label>
-        <input name="preferred_at" type="datetime-local" className={inputClass} />
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm font-medium text-gray-700">
-          방문 목적 / 관심 사항
-        </label>
-        <input
-          name="purpose"
-          className={inputClass}
-          placeholder="상담받고 싶은 내용을 적어주세요"
-        />
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm font-medium text-gray-700">
-          유입경로
-        </label>
-        <select name="channel" className={inputClass} defaultValue="">
-          <option value="" disabled>
-            선택해주세요
-          </option>
-          <option value="검색">검색(네이버/구글)</option>
-          <option value="지인소개">지인소개</option>
-          <option value="SNS">SNS/유튜브</option>
-          <option value="광고">광고</option>
-          <option value="기타">기타</option>
-        </select>
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm font-medium text-gray-700">
-          남기실 말씀
-        </label>
-        <textarea
-          name="memo"
-          rows={3}
-          className={inputClass}
-          placeholder="추가로 전달하실 내용"
+          placeholder="예) 서울 강남점 / 거주 지역"
         />
       </div>
 
