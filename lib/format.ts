@@ -28,6 +28,13 @@ export function formatCurrency(value: number | null): string {
   return neg + parts.join(" ") + "원";
 }
 
+// "2026-05" → "2026년 5월"
+export function monthLabel(ym: string): string {
+  if (!ym) return "계약일 미정";
+  const [y, m] = ym.split("-");
+  return `${y}년 ${Number(m)}월`;
+}
+
 export function formatDate(iso: string | null): string {
   if (!iso) return "-";
   const d = new Date(iso);

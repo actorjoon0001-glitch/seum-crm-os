@@ -1,8 +1,13 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import { createServiceClient, hasSupabaseEnv, CONTRACTS_TABLE, DRAWINGS_TABLE } from "@/lib/supabase/server";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatDate, monthLabel } from "@/lib/format";
 import type { Contract } from "@/lib/types";
 import { showroomLabel } from "@/lib/types";
+
+function ym(date: string | null | undefined): string {
+  return date ? String(date).slice(0, 7) : "";
+}
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +16,7 @@ const PAGE_SIZE = 50;
 type Search = {
   q?: string;
   showroom?: string;
+  month?: string;
   urgent?: string;
   photos?: string;
   page?: string;
@@ -53,6 +59,7 @@ export default async function AdminPage({
   const supabase = createServiceClient();
   const q = (searchParams.q ?? "").trim();
   const showroom = (searchParams.showroom ?? "").trim();
+  const month = (searchParams.month ?? "").trim(); // "YYYY-MM"
   const urgent = searchParams.urgent === "1";
   const hasPhotos = searchParams.photos === "1";
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
@@ -91,6 +98,14 @@ export default async function AdminPage({
   if (showroom) query = query.eq("showroom_id", showroom);
   if (urgent) query = query.eq("is_urgent", true);
   if (photoLocalIds) query = query.in("local_id", photoLocalIds);
+  if (/^\d{4}-\d{2}$/.test(month)) {
+    const [y, m] = month.split("-").map(Number);
+    const start = `${month}-01`;
+    const nextY = m === 12 ? y + 1 : y;
+    const nextM = m === 12 ? 1 : m + 1;
+    const end = `${nextY}-${String(nextM).padStart(2, "0")}-01`;
+    query = query.gte("contract_date", start).lt("contract_date", end);
+  }
 
   const { data, error, count } = await query;
   const contracts = (data ?? []) as Partial<Contract>[];
@@ -128,9 +143,11 @@ export default async function AdminPage({
       <Filters
         q={q}
         showroom={showroom}
+        month={month}
         urgent={urgent}
         hasPhotos={hasPhotos}
         showrooms={stats.showrooms}
+        months={stats.months}
       />
 
       {error ? (
@@ -146,7 +163,13 @@ export default async function AdminPage({
           <Pagination
             page={page}
             totalPages={totalPages}
-            params={{ q, showroom, urgent: urgent ? "1" : "", photos: hasPhotos ? "1" : "" }}
+            params={{
+              q,
+              showroom,
+              month,
+              urgent: urgent ? "1" : "",
+              photos: hasPhotos ? "1" : "",
+            }}
           />
         </>
       )}
@@ -194,12 +217,29 @@ async function loadStats(supabase: ReturnType<typeof createServiceClient>) {
     new Set((showroomRows ?? []).map((r) => (r as { showroom_id: string }).showroom_id))
   ).sort();
 
+  // 월 목록(필터용) — 계약일 기준 YYYY-MM 별 건수
+  const { data: dateRows } = await supabase
+    .from(CONTRACTS_TABLE)
+    .select("contract_date")
+    .or(notDeleted)
+    .not("contract_date", "is", null)
+    .limit(5000);
+  const monthMap = new Map<string, number>();
+  for (const r of dateRows ?? []) {
+    const key = String((r as { contract_date: string }).contract_date).slice(0, 7);
+    if (key) monthMap.set(key, (monthMap.get(key) ?? 0) + 1);
+  }
+  const months = Array.from(monthMap.entries()).sort((a, b) =>
+    b[0].localeCompare(a[0])
+  );
+
   return {
     total: total ?? 0,
     urgent: urgent ?? 0,
     photos: photos ?? 0,
     thisMonth: thisMonth ?? 0,
     showrooms,
+    months,
   };
 }
 
@@ -239,15 +279,19 @@ function StatCard({
 function Filters({
   q,
   showroom,
+  month,
   urgent,
   hasPhotos,
   showrooms,
+  months,
 }: {
   q: string;
   showroom: string;
+  month: string;
   urgent: boolean;
   hasPhotos: boolean;
   showrooms: string[];
+  months: [string, number][];
 }) {
   return (
     <form action="/admin" className="mt-6 flex flex-wrap items-center gap-2">
@@ -257,6 +301,18 @@ function Filters({
         placeholder="고객명 · 영업사원 · 모델 검색"
         className="w-64 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm outline-none focus:border-seum"
       />
+      <select
+        name="month"
+        defaultValue={month}
+        className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-seum"
+      >
+        <option value="">전체 기간</option>
+        {months.map(([ymKey, cnt]) => (
+          <option key={ymKey} value={ymKey}>
+            {monthLabel(ymKey)} ({cnt})
+          </option>
+        ))}
+      </select>
       <select
         name="showroom"
         defaultValue={showroom}
@@ -280,7 +336,7 @@ function Filters({
       <button className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white">
         검색
       </button>
-      {(q || showroom || urgent || hasPhotos) && (
+      {(q || showroom || month || urgent || hasPhotos) && (
         <Link href="/admin" className="text-sm text-gray-400 hover:text-gray-600">
           초기화
         </Link>
@@ -319,10 +375,24 @@ function ContractTable({
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-50">
-          {contracts.map((c) => {
+          {contracts.map((c, idx) => {
             const photos = c.local_id ? photoCount.get(c.local_id) ?? 0 : 0;
+            const curYm = ym(c.contract_date);
+            const prevYm = idx > 0 ? ym(contracts[idx - 1].contract_date) : null;
+            const showMonthHeader = curYm !== prevYm;
             return (
-              <tr key={c.id} className="hover:bg-gray-50/50">
+              <Fragment key={c.id}>
+                {showMonthHeader && (
+                  <tr className="border-t border-gray-100 bg-gray-50/80">
+                    <td
+                      colSpan={7}
+                      className="px-4 py-1.5 text-xs font-bold text-gray-500"
+                    >
+                      {curYm ? monthLabel(curYm) : "계약일 미정"}
+                    </td>
+                  </tr>
+                )}
+              <tr className="hover:bg-gray-50/50">
                 <td className="px-4 py-3">
                   <Link
                     href={`/admin/${c.id}`}
@@ -356,6 +426,7 @@ function ContractTable({
                   )}
                 </td>
               </tr>
+              </Fragment>
             );
           })}
         </tbody>
