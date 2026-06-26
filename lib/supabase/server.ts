@@ -8,6 +8,11 @@ export const DRAWINGS_TABLE =
 // 방문예약(향후) 저장용 고객 테이블
 export const CUSTOMERS_TABLE =
   process.env.SUPABASE_CUSTOMERS_TABLE || "customers";
+// 방문예약 / 리드 (세움 기존 테이블)
+export const APPOINTMENTS_TABLE =
+  process.env.SUPABASE_APPOINTMENTS_TABLE || "appointments";
+export const LEADS_TABLE =
+  process.env.SUPABASE_LEADS_TABLE || "leads";
 
 /**
  * 서버 전용 Supabase 클라이언트.

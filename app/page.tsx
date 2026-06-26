@@ -10,8 +10,7 @@ export default function Home() {
         고객관리<span className="text-seum">OS</span>
       </h1>
       <p className="mt-4 max-w-xl text-lg text-gray-600">
-        수기 계약 고객과 계약서 사진을 한 곳에서 확인하고, 방문예약·call-os
-        고객까지 통합 관리합니다.
+        수기 계약 고객과 방문예약 고객을 한 곳에서 관리하는 내부 시스템입니다.
       </p>
 
       <div className="mt-10 grid w-full gap-4 sm:grid-cols-2">
@@ -19,10 +18,10 @@ export default function Home() {
           href="/admin"
           className="group rounded-2xl border border-gray-200 bg-white p-6 text-left shadow-sm transition hover:border-seum hover:shadow-md"
         >
-          <div className="text-sm font-medium text-seum">관리자</div>
-          <div className="mt-1 text-xl font-bold">고객관리 대시보드</div>
+          <div className="text-sm font-medium text-seum">계약</div>
+          <div className="mt-1 text-xl font-bold">계약 고객 관리</div>
           <p className="mt-2 text-sm text-gray-500">
-            수기 계약 고객 목록과 계약서 사진을 확인하세요.
+            수기 계약 고객 목록과 계약서 파일을 확인하세요.
           </p>
           <span className="mt-4 inline-block text-sm font-semibold text-seum group-hover:underline">
             대시보드 열기 →
@@ -30,16 +29,16 @@ export default function Home() {
         </Link>
 
         <Link
-          href="/reserve"
+          href="/admin/visits"
           className="group rounded-2xl border border-gray-200 bg-white p-6 text-left shadow-sm transition hover:border-seum hover:shadow-md"
         >
-          <div className="text-sm font-medium text-seum">고객용</div>
-          <div className="mt-1 text-xl font-bold">방문예약 신청</div>
+          <div className="text-sm font-medium text-seum">방문예약</div>
+          <div className="mt-1 text-xl font-bold">방문예약 고객</div>
           <p className="mt-2 text-sm text-gray-500">
-            방문을 원하는 고객이 직접 예약을 신청합니다.
+            방문예약한 고객 목록을 확인하세요.
           </p>
           <span className="mt-4 inline-block text-sm font-semibold text-seum group-hover:underline">
-            예약폼 열기 →
+            예약 목록 열기 →
           </span>
         </Link>
       </div>

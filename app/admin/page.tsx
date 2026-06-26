@@ -253,8 +253,14 @@ function Header() {
         <h1 className="text-2xl font-bold">
           고객관리<span className="text-seum">OS</span>
         </h1>
-        <p className="mt-0.5 text-sm text-gray-500">수기 계약 고객 · 계약서 사진</p>
+        <p className="mt-0.5 text-sm text-gray-500">수기 계약 고객 · 계약서 파일</p>
       </div>
+      <Link
+        href="/admin/visits"
+        className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:border-seum hover:text-seum"
+      >
+        방문예약 고객 →
+      </Link>
     </header>
   );
 }
