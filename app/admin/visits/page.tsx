@@ -2,149 +2,165 @@ import Link from "next/link";
 import {
   createServiceClient,
   hasSupabaseEnv,
-  APPOINTMENTS_TABLE,
-  LEADS_TABLE,
+  VISITS_TABLE,
 } from "@/lib/supabase/server";
 import { formatDateTime } from "@/lib/format";
-import { showroomLabel } from "@/lib/types";
+import type { VisitReservation } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-interface Appointment {
-  id: string;
-  lead_id: string | null;
-  showroom: string | null;
-  visit_at: string | null;
-  people: number | null;
-  status: string | null;
-  memo: string | null;
-  created_at: string;
-}
+type Search = { q?: string; source?: string };
 
-// leads 테이블 컬럼이 확정되기 전이라, 흔한 키들을 방어적으로 읽습니다.
-type LeadRow = Record<string, unknown>;
-function pick(row: LeadRow | undefined, keys: string[]): string {
-  if (!row) return "";
-  for (const k of keys) {
-    const v = row[k];
-    if (typeof v === "string" && v.trim()) return v;
-    if (typeof v === "number") return String(v);
-  }
-  return "";
-}
-
-export default async function VisitsPage() {
+export default async function VisitsPage({
+  searchParams,
+}: {
+  searchParams: Search;
+}) {
   if (!hasSupabaseEnv()) {
     return (
       <main className="mx-auto max-w-6xl px-6 py-10">
         <Header />
-        <p className="mt-8 text-sm text-gray-400">
-          Supabase 연결이 필요합니다. (.env / 배포 환경변수 확인)
-        </p>
+        <p className="mt-8 text-sm text-gray-400">Supabase 연결이 필요합니다.</p>
       </main>
     );
   }
 
   const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from(APPOINTMENTS_TABLE)
+  const q = (searchParams.q ?? "").trim();
+  const source = (searchParams.source ?? "").trim();
+
+  let query = supabase
+    .from(VISITS_TABLE)
     .select("*")
-    .order("visit_at", { ascending: false, nullsFirst: false })
+    .order("submitted_at", { ascending: false, nullsFirst: false })
     .limit(300);
+  if (q) query = query.or(`name.ilike.%${q}%,phone.ilike.%${q}%`);
+  if (source) query = query.eq("source", source);
 
-  const appointments = (data ?? []) as Appointment[];
+  const { data, error } = await query;
+  const rows = (data ?? []) as VisitReservation[];
 
-  // 리드(고객정보) 매핑
-  const leadIds = Array.from(
-    new Set(appointments.map((a) => a.lead_id).filter(Boolean))
-  ) as string[];
-  const leadMap = new Map<string, LeadRow>();
-  if (leadIds.length > 0) {
-    const { data: leads } = await supabase
-      .from(LEADS_TABLE)
-      .select("*")
-      .in("id", leadIds);
-    for (const l of (leads ?? []) as LeadRow[]) {
-      const id = l.id;
-      if (typeof id === "string") leadMap.set(id, l);
-    }
-  }
+  // 유입경로 목록(필터)
+  const { data: srcRows } = await supabase
+    .from(VISITS_TABLE)
+    .select("source")
+    .not("source", "is", null)
+    .limit(2000);
+  const sources = Array.from(
+    new Set((srcRows ?? []).map((r) => (r as { source: string }).source))
+  ).sort();
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
-      <Header />
+      <Header count={rows.length} />
 
       {error ? (
-        <div className="mt-6 rounded-xl bg-amber-50 p-4 text-sm text-amber-700">
-          방문예약 데이터를 불러오지 못했습니다: {error.message}
-          <p className="mt-1 text-xs text-amber-500">
-            appointments 테이블 이름이 다르면 환경변수 SUPABASE_APPOINTMENTS_TABLE 로 지정하세요.
-          </p>
-        </div>
-      ) : appointments.length === 0 ? (
-        <div className="mt-6 rounded-2xl border border-dashed border-gray-300 bg-white p-12 text-center text-sm text-gray-400">
-          아직 등록된 방문예약이 없습니다.
-        </div>
+        <SetupNotice message={error.message} />
       ) : (
         <>
-          <p className="mt-6 text-xs text-gray-400">총 {appointments.length}건</p>
-          <div className="mt-2 overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-gray-100 bg-gray-50 text-xs uppercase text-gray-500">
-                <tr>
-                  <th className="px-4 py-3 font-medium">고객</th>
-                  <th className="px-4 py-3 font-medium">방문일시</th>
-                  <th className="px-4 py-3 font-medium">전시장</th>
-                  <th className="px-4 py-3 text-center font-medium">인원</th>
-                  <th className="px-4 py-3 font-medium">상태</th>
-                  <th className="px-4 py-3 font-medium">메모</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {appointments.map((a) => {
-                  const lead = a.lead_id ? leadMap.get(a.lead_id) : undefined;
-                  const name = pick(lead, ["name", "customer_name", "client_name"]) || "(이름없음)";
-                  const phone = pick(lead, ["phone", "phone_number", "contact", "tel", "mobile"]);
-                  return (
-                    <tr key={a.id} className="hover:bg-gray-50/50">
+          <form action="/admin/visits" className="mt-6 flex flex-wrap items-center gap-2">
+            <input
+              name="q"
+              defaultValue={q}
+              placeholder="이름 · 연락처 검색"
+              className="w-56 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm outline-none focus:border-seum"
+            />
+            <select
+              name="source"
+              defaultValue={source}
+              className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-seum"
+            >
+              <option value="">전체 유입경로</option>
+              {sources.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+            <button className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white">
+              검색
+            </button>
+            {(q || source) && (
+              <Link href="/admin/visits" className="text-sm text-gray-400 hover:text-gray-600">
+                초기화
+              </Link>
+            )}
+          </form>
+
+          {rows.length === 0 ? (
+            <div className="mt-6 rounded-2xl border border-dashed border-gray-300 bg-white p-12 text-center text-sm text-gray-400">
+              아직 등록된 방문예약이 없습니다.
+            </div>
+          ) : (
+            <div className="mt-4 overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-gray-100 bg-gray-50 text-xs uppercase text-gray-500">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">고객</th>
+                    <th className="px-4 py-3 font-medium">방문일시</th>
+                    <th className="px-4 py-3 text-center font-medium">인원</th>
+                    <th className="px-4 py-3 font-medium">관심상품 / 평수</th>
+                    <th className="px-4 py-3 font-medium">예산</th>
+                    <th className="px-4 py-3 font-medium">유입</th>
+                    <th className="px-4 py-3 font-medium">접수일</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {rows.map((r) => (
+                    <tr key={r.id} className="hover:bg-gray-50/50">
                       <td className="px-4 py-3">
-                        <div className="font-semibold text-gray-900">{name}</div>
-                        {phone && <div className="text-xs text-gray-400">{phone}</div>}
+                        <Link
+                          href={`/admin/visits/${r.id}`}
+                          className="font-semibold text-gray-900 hover:text-seum"
+                        >
+                          {r.name || "(이름없음)"}
+                        </Link>
+                        {r.phone && <div className="text-xs text-gray-400">{r.phone}</div>}
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-600">
-                        {formatDateTime(a.visit_at)}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-gray-500">
-                        {showroomLabel(a.showroom)}
+                        {r.visit_date || "-"}
+                        {r.visit_time ? ` ${r.visit_time}` : ""}
                       </td>
                       <td className="px-4 py-3 text-center text-xs text-gray-500">
-                        {a.people ? `${a.people}명` : "-"}
+                        {r.visitor_count || "-"}
                       </td>
-                      <td className="px-4 py-3">
-                        {a.status ? (
-                          <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-                            {a.status}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-gray-300">-</span>
-                        )}
+                      <td className="px-4 py-3 text-xs text-gray-600">
+                        {r.interest_type || "-"}
+                        {r.size ? (
+                          <span className="text-gray-400"> · {r.size}</span>
+                        ) : null}
                       </td>
-                      <td className="px-4 py-3 text-xs text-gray-500">
-                        <span className="line-clamp-2">{a.memo || "-"}</span>
+                      <td className="px-4 py-3 text-xs text-gray-500">{r.budget || "-"}</td>
+                      <td className="px-4 py-3 text-xs text-gray-500">{r.source || "-"}</td>
+                      <td className="px-4 py-3 text-xs text-gray-400">
+                        {formatDateTime(r.submitted_at)}
                       </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </>
       )}
     </main>
   );
 }
 
-function Header() {
+function SetupNotice({ message }: { message: string }) {
+  return (
+    <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800">
+      <p className="font-semibold">방문예약 테이블이 아직 없습니다.</p>
+      <p className="mt-1 text-xs text-amber-600">({message})</p>
+      <p className="mt-3">
+        Supabase에 <code className="rounded bg-amber-100 px-1">visit_reservations</code>{" "}
+        테이블을 만들고, n8n에서 방문예약 데이터를 이 테이블로 보내면 여기에 표시됩니다.
+      </p>
+    </div>
+  );
+}
+
+function Header({ count }: { count?: number }) {
   return (
     <header className="flex items-center justify-between">
       <div>
@@ -154,7 +170,9 @@ function Header() {
         <h1 className="text-2xl font-bold">
           방문예약 <span className="text-seum">고객</span>
         </h1>
-        <p className="mt-0.5 text-sm text-gray-500">방문예약한 고객 목록</p>
+        <p className="mt-0.5 text-sm text-gray-500">
+          방문예약폼 접수 고객 {count !== undefined ? `· ${count}건` : ""}
+        </p>
       </div>
       <Link
         href="/admin"

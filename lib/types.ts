@@ -70,3 +70,30 @@ export function showroomLabel(id: string | null | undefined): string {
   if (m) return `${m[1]}전시장`;
   return id;
 }
+
+// 방문예약폼 (구글시트 → n8n → Supabase visit_reservations)
+export interface VisitReservation {
+  id: string;
+  submitted_at: string | null;
+  name: string | null;
+  phone: string | null;
+  visit_date: string | null;
+  visit_time: string | null;
+  visitor_count: string | null;
+  source: string | null;
+  interest_type: string | null;
+  size: string | null;
+  budget: string | null;
+  land_owned: string | null;
+  addr_jibun: string | null;
+  lg_event_apply: string | null;
+  lg_event_target: string | null;
+  lg_gift: string | null;
+  want_3d: string | null;
+  three_d_size: string | null;
+  room_count: string | null;
+  bath_count: string | null;
+  memo: string | null;
+  status: string | null;
+  created_at: string;
+}

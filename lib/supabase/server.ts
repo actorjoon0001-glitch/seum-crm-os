@@ -13,6 +13,9 @@ export const APPOINTMENTS_TABLE =
   process.env.SUPABASE_APPOINTMENTS_TABLE || "appointments";
 export const LEADS_TABLE =
   process.env.SUPABASE_LEADS_TABLE || "leads";
+// 방문예약폼(구글시트 → n8n → Supabase) 저장 테이블
+export const VISITS_TABLE =
+  process.env.SUPABASE_VISITS_TABLE || "visit_reservations";
 
 /**
  * 서버 전용 Supabase 클라이언트.
