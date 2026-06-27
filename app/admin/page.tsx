@@ -4,6 +4,7 @@ import { createServiceClient, hasSupabaseEnv, CONTRACTS_TABLE, DRAWINGS_TABLE } 
 import { formatCurrency, formatDate, monthLabel } from "@/lib/format";
 import type { Contract } from "@/lib/types";
 import { showroomLabel } from "@/lib/types";
+import { logout } from "@/app/login/actions";
 
 function ym(date: string | null | undefined): string {
   return date ? String(date).slice(0, 7) : "";
@@ -255,12 +256,19 @@ function Header() {
         </h1>
         <p className="mt-0.5 text-sm text-gray-500">수기 계약 고객 · 계약서 파일</p>
       </div>
-      <Link
-        href="/admin/visits"
-        className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:border-seum hover:text-seum"
-      >
-        방문예약 고객 →
-      </Link>
+      <div className="flex items-center gap-2">
+        <Link
+          href="/admin/visits"
+          className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:border-seum hover:text-seum"
+        >
+          방문예약 고객 →
+        </Link>
+        <form action={logout}>
+          <button className="rounded-xl px-3 py-2 text-sm text-gray-400 hover:text-gray-600">
+            로그아웃
+          </button>
+        </form>
+      </div>
     </header>
   );
 }

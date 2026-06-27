@@ -6,6 +6,7 @@ import {
 } from "@/lib/supabase/server";
 import { formatDateTime } from "@/lib/format";
 import type { VisitReservation } from "@/lib/types";
+import { logout } from "@/app/login/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -174,12 +175,19 @@ function Header({ count }: { count?: number }) {
           방문예약폼 접수 고객 {count !== undefined ? `· ${count}건` : ""}
         </p>
       </div>
-      <Link
-        href="/admin"
-        className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:border-seum hover:text-seum"
-      >
-        계약 고객 →
-      </Link>
+      <div className="flex items-center gap-2">
+        <Link
+          href="/admin"
+          className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:border-seum hover:text-seum"
+        >
+          계약 고객 →
+        </Link>
+        <form action={logout}>
+          <button className="rounded-xl px-3 py-2 text-sm text-gray-400 hover:text-gray-600">
+            로그아웃
+          </button>
+        </form>
+      </div>
     </header>
   );
 }
