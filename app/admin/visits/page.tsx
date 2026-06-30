@@ -7,10 +7,13 @@ import {
 import { formatDateTime } from "@/lib/format";
 import type { VisitReservation } from "@/lib/types";
 import { logout } from "@/app/login/actions";
+import VisitCalendar, { defaultVisitMonth } from "./VisitCalendar";
 
 export const dynamic = "force-dynamic";
 
-type Search = { q?: string; source?: string };
+const pad = (n: number) => String(n).padStart(2, "0");
+
+type Search = { q?: string; source?: string; view?: string; month?: string };
 
 export default async function VisitsPage({
   searchParams,
@@ -29,6 +32,7 @@ export default async function VisitsPage({
   const supabase = createServiceClient();
   const q = (searchParams.q ?? "").trim();
   const source = (searchParams.source ?? "").trim();
+  const view = searchParams.view === "calendar" ? "calendar" : "list";
 
   let query = supabase
     .from(VISITS_TABLE)
@@ -51,6 +55,16 @@ export default async function VisitsPage({
     new Set((srcRows ?? []).map((r) => (r as { source: string }).source))
   ).sort();
 
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+  const month = /^\d{4}-\d{2}$/.test(searchParams.month || "")
+    ? (searchParams.month as string)
+    : defaultVisitMonth(rows, today);
+
+  const toggleBase = new URLSearchParams();
+  if (q) toggleBase.set("q", q);
+  if (source) toggleBase.set("source", source);
+
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
       <Header count={rows.length} />
@@ -59,7 +73,24 @@ export default async function VisitsPage({
         <SetupNotice message={error.message} />
       ) : (
         <>
-          <form action="/admin/visits" className="mt-6 flex flex-wrap items-center gap-2">
+          {/* 보기 전환: 목록 / 캘린더 */}
+          <div className="mt-6 inline-flex rounded-xl border border-gray-200 bg-white p-1 text-sm font-semibold shadow-sm">
+            <Link
+              href={`/admin/visits${toggleBase.toString() ? `?${toggleBase}` : ""}`}
+              className={`rounded-lg px-4 py-1.5 ${view === "list" ? "bg-seum text-white" : "text-gray-500 hover:text-gray-800"}`}
+            >
+              목록
+            </Link>
+            <Link
+              href={`/admin/visits?${new URLSearchParams({ ...Object.fromEntries(toggleBase), view: "calendar" })}`}
+              className={`rounded-lg px-4 py-1.5 ${view === "calendar" ? "bg-seum text-white" : "text-gray-500 hover:text-gray-800"}`}
+            >
+              📅 캘린더
+            </Link>
+          </div>
+
+          <form action="/admin/visits" className="mt-4 flex flex-wrap items-center gap-2">
+            <input type="hidden" name="view" value={view} />
             <input
               name="q"
               defaultValue={q}
@@ -88,7 +119,14 @@ export default async function VisitsPage({
             )}
           </form>
 
-          {rows.length === 0 ? (
+          {view === "calendar" ? (
+            <VisitCalendar
+              rows={rows}
+              month={month}
+              todayStr={todayStr}
+              params={{ q, source }}
+            />
+          ) : rows.length === 0 ? (
             <div className="mt-6 rounded-2xl border border-dashed border-gray-300 bg-white p-12 text-center text-sm text-gray-400">
               아직 등록된 방문예약이 없습니다.
             </div>
