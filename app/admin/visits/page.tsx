@@ -10,6 +10,8 @@ import { logout } from "@/app/login/actions";
 import VisitCalendar, { defaultVisitMonth } from "./VisitCalendar";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
