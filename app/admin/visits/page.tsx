@@ -9,7 +9,7 @@ import type { VisitReservation } from "@/lib/types";
 import { showroomLabel } from "@/lib/types";
 import { logout } from "@/app/login/actions";
 import VisitCalendar, { defaultVisitMonth } from "./VisitCalendar";
-import { vf } from "./fields";
+import { vf, getPayload } from "./fields";
 import { StatusSelect, AssigneeInput } from "./RowControls";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ export const fetchCache = "force-no-store";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
-type Search = { q?: string; source?: string; view?: string; month?: string };
+type Search = { q?: string; showroom?: string; view?: string; month?: string };
 
 export default async function VisitsPage({
   searchParams,
@@ -36,7 +36,7 @@ export default async function VisitsPage({
 
   const supabase = createServiceClient();
   const q = (searchParams.q ?? "").trim();
-  const source = (searchParams.source ?? "").trim();
+  const showroom = (searchParams.showroom ?? "").trim();
   const view = searchParams.view === "calendar" ? "calendar" : "list";
 
   let query = supabase
@@ -45,20 +45,23 @@ export default async function VisitsPage({
     .order("submitted_at", { ascending: false, nullsFirst: false })
     .limit(300);
   if (q) query = query.or(`name.ilike.%${q}%,phone.ilike.%${q}%`);
-  if (source) query = query.eq("source", source);
+  if (showroom) query = query.filter("payload->>showroom", "eq", showroom);
 
   const { data, error } = await query;
   const rows = (data ?? []) as VisitReservation[];
 
-  // 유입경로 목록(필터)
-  const { data: srcRows } = await supabase
+  // 전시장 목록(필터) — payload에서 추출
+  const { data: allRows } = await supabase
     .from(VISITS_TABLE)
-    .select("source")
-    .not("source", "is", null)
+    .select("payload")
     .limit(2000);
-  const sources = Array.from(
-    new Set((srcRows ?? []).map((r) => (r as { source: string }).source))
-  ).sort();
+  const showroomSet = new Set<string>();
+  for (const row of allRows ?? []) {
+    const p = getPayload(row as VisitReservation);
+    const s = p?.showroom;
+    if (typeof s === "string" && s.trim()) showroomSet.add(s.trim());
+  }
+  const showrooms = Array.from(showroomSet).sort();
 
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
@@ -68,7 +71,7 @@ export default async function VisitsPage({
 
   const toggleBase = new URLSearchParams();
   if (q) toggleBase.set("q", q);
-  if (source) toggleBase.set("source", source);
+  if (showroom) toggleBase.set("showroom", showroom);
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
@@ -103,21 +106,21 @@ export default async function VisitsPage({
               className="w-56 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm outline-none focus:border-seum"
             />
             <select
-              name="source"
-              defaultValue={source}
+              name="showroom"
+              defaultValue={showroom}
               className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-seum"
             >
-              <option value="">전체 유입경로</option>
-              {sources.map((s) => (
+              <option value="">전체 전시장</option>
+              {showrooms.map((s) => (
                 <option key={s} value={s}>
-                  {s}
+                  {showroomLabel(s)}
                 </option>
               ))}
             </select>
             <button className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white">
               검색
             </button>
-            {(q || source) && (
+            {(q || showroom) && (
               <Link href="/admin/visits" className="text-sm text-gray-400 hover:text-gray-600">
                 초기화
               </Link>
@@ -129,7 +132,7 @@ export default async function VisitsPage({
               rows={rows}
               month={month}
               todayStr={todayStr}
-              params={{ q, source }}
+              params={{ q, showroom }}
             />
           ) : rows.length === 0 ? (
             <div className="mt-6 rounded-2xl border border-dashed border-gray-300 bg-white p-12 text-center text-sm text-gray-400">
