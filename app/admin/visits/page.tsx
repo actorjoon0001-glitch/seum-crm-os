@@ -6,6 +6,7 @@ import {
 } from "@/lib/supabase/server";
 import { formatDateTime } from "@/lib/format";
 import type { VisitReservation } from "@/lib/types";
+import { showroomLabel } from "@/lib/types";
 import { logout } from "@/app/login/actions";
 import VisitCalendar, { defaultVisitMonth } from "./VisitCalendar";
 import { vf } from "./fields";
@@ -140,10 +141,10 @@ export default async function VisitsPage({
                   <tr>
                     <th className="px-4 py-3 font-medium">고객</th>
                     <th className="px-4 py-3 font-medium">방문일시</th>
-                    <th className="px-4 py-3 text-center font-medium">인원</th>
-                    <th className="px-4 py-3 font-medium">관심상품 / 평수</th>
+                    <th className="px-4 py-3 font-medium">전시장</th>
+                    <th className="px-4 py-3 font-medium">관심유형 / 평수</th>
                     <th className="px-4 py-3 font-medium">예산</th>
-                    <th className="px-4 py-3 font-medium">유입</th>
+                    <th className="px-4 py-3 font-medium">건축시기</th>
                     <th className="px-4 py-3 font-medium">접수일</th>
                   </tr>
                 </thead>
@@ -151,11 +152,11 @@ export default async function VisitsPage({
                   {rows.map((r) => {
                     const vdate = vf(r, ["visitDate"], "visit_date");
                     const vtime = vf(r, ["visitTime"], "visit_time");
-                    const people = vf(r, ["visitorCount"], "visitor_count");
+                    const showroom = showroomLabel(vf(r, ["showroom"]) || null);
                     const interest = vf(r, ["houseType", "interestType"], "interest_type");
                     const size = vf(r, ["pyeong", "size"], "size");
                     const budget = vf(r, ["budget"], "budget");
-                    const source = vf(r, ["source"], "source");
+                    const build = vf(r, ["buildTimeline"]);
                     const name = vf(r, ["name"], "name") || "(이름없음)";
                     const phone = vf(r, ["phone"], "phone");
                     return (
@@ -173,15 +174,15 @@ export default async function VisitsPage({
                           {vdate || "-"}
                           {vtime ? ` ${vtime}` : ""}
                         </td>
-                        <td className="px-4 py-3 text-center text-xs text-gray-500">
-                          {people || "-"}
+                        <td className="px-4 py-3 text-xs text-gray-500">
+                          {showroom === "-" ? "-" : showroom}
                         </td>
                         <td className="px-4 py-3 text-xs text-gray-600">
                           {interest || "-"}
                           {size ? <span className="text-gray-400"> · {size}</span> : null}
                         </td>
                         <td className="px-4 py-3 text-xs text-gray-500">{budget || "-"}</td>
-                        <td className="px-4 py-3 text-xs text-gray-500">{source || "-"}</td>
+                        <td className="px-4 py-3 text-xs text-gray-500">{build || "-"}</td>
                         <td className="px-4 py-3 text-xs text-gray-400">
                           {formatDateTime(r.submitted_at)}
                         </td>
