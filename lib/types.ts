@@ -96,4 +96,6 @@ export interface VisitReservation {
   memo: string | null;
   status: string | null;
   created_at: string;
+  // 폼 원본 전체(신규 폼 대응). 폼이 바뀌어도 여기에 모두 저장됨.
+  payload?: Record<string, unknown> | string | null;
 }
