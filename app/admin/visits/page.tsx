@@ -149,7 +149,7 @@ export default async function VisitsPage({
                     <th className="px-4 py-3 font-medium">관심유형 / 평수</th>
                     <th className="px-4 py-3 font-medium">예산</th>
                     <th className="px-4 py-3 font-medium">건축시기</th>
-                    <th className="px-4 py-3 font-medium">담당</th>
+                    <th className="px-4 py-3 font-medium">담당 영업사원</th>
                     <th className="px-4 py-3 font-medium">상태</th>
                     <th className="px-4 py-3 font-medium">접수일</th>
                   </tr>
