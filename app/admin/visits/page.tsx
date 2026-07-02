@@ -8,6 +8,7 @@ import { formatDateTime } from "@/lib/format";
 import type { VisitReservation } from "@/lib/types";
 import { logout } from "@/app/login/actions";
 import VisitCalendar, { defaultVisitMonth } from "./VisitCalendar";
+import { vf } from "./fields";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -147,37 +148,46 @@ export default async function VisitsPage({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {rows.map((r) => (
-                    <tr key={r.id} className="hover:bg-gray-50/50">
-                      <td className="px-4 py-3">
-                        <Link
-                          href={`/admin/visits/${r.id}`}
-                          className="font-semibold text-gray-900 hover:text-seum"
-                        >
-                          {r.name || "(이름없음)"}
-                        </Link>
-                        {r.phone && <div className="text-xs text-gray-400">{r.phone}</div>}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-gray-600">
-                        {r.visit_date || "-"}
-                        {r.visit_time ? ` ${r.visit_time}` : ""}
-                      </td>
-                      <td className="px-4 py-3 text-center text-xs text-gray-500">
-                        {r.visitor_count || "-"}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-gray-600">
-                        {r.interest_type || "-"}
-                        {r.size ? (
-                          <span className="text-gray-400"> · {r.size}</span>
-                        ) : null}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-gray-500">{r.budget || "-"}</td>
-                      <td className="px-4 py-3 text-xs text-gray-500">{r.source || "-"}</td>
-                      <td className="px-4 py-3 text-xs text-gray-400">
-                        {formatDateTime(r.submitted_at)}
-                      </td>
-                    </tr>
-                  ))}
+                  {rows.map((r) => {
+                    const vdate = vf(r, ["visitDate"], "visit_date");
+                    const vtime = vf(r, ["visitTime"], "visit_time");
+                    const people = vf(r, ["visitorCount"], "visitor_count");
+                    const interest = vf(r, ["houseType", "interestType"], "interest_type");
+                    const size = vf(r, ["pyeong", "size"], "size");
+                    const budget = vf(r, ["budget"], "budget");
+                    const source = vf(r, ["source"], "source");
+                    const name = vf(r, ["name"], "name") || "(이름없음)";
+                    const phone = vf(r, ["phone"], "phone");
+                    return (
+                      <tr key={r.id} className="hover:bg-gray-50/50">
+                        <td className="px-4 py-3">
+                          <Link
+                            href={`/admin/visits/${r.id}`}
+                            className="font-semibold text-gray-900 hover:text-seum"
+                          >
+                            {name}
+                          </Link>
+                          {phone && <div className="text-xs text-gray-400">{phone}</div>}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-600">
+                          {vdate || "-"}
+                          {vtime ? ` ${vtime}` : ""}
+                        </td>
+                        <td className="px-4 py-3 text-center text-xs text-gray-500">
+                          {people || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-600">
+                          {interest || "-"}
+                          {size ? <span className="text-gray-400"> · {size}</span> : null}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-500">{budget || "-"}</td>
+                        <td className="px-4 py-3 text-xs text-gray-500">{source || "-"}</td>
+                        <td className="px-4 py-3 text-xs text-gray-400">
+                          {formatDateTime(r.submitted_at)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
