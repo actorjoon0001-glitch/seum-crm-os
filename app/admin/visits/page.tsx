@@ -10,6 +10,7 @@ import { showroomLabel } from "@/lib/types";
 import { logout } from "@/app/login/actions";
 import VisitCalendar, { defaultVisitMonth } from "./VisitCalendar";
 import { vf } from "./fields";
+import { StatusSelect, AssigneeInput } from "./RowControls";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -145,6 +146,8 @@ export default async function VisitsPage({
                     <th className="px-4 py-3 font-medium">관심유형 / 평수</th>
                     <th className="px-4 py-3 font-medium">예산</th>
                     <th className="px-4 py-3 font-medium">건축시기</th>
+                    <th className="px-4 py-3 font-medium">담당</th>
+                    <th className="px-4 py-3 font-medium">상태</th>
                     <th className="px-4 py-3 font-medium">접수일</th>
                   </tr>
                 </thead>
@@ -183,6 +186,12 @@ export default async function VisitsPage({
                         </td>
                         <td className="px-4 py-3 text-xs text-gray-500">{budget || "-"}</td>
                         <td className="px-4 py-3 text-xs text-gray-500">{build || "-"}</td>
+                        <td className="px-4 py-3">
+                          <AssigneeInput id={r.id} value={r.assigned_to} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <StatusSelect id={r.id} status={r.status} />
+                        </td>
                         <td className="px-4 py-3 text-xs text-gray-400">
                           {formatDateTime(r.submitted_at)}
                         </td>
