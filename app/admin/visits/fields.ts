@@ -5,6 +5,7 @@ export const VISIT_STATUSES: { value: string; label: string; color: string }[] =
   { value: "new", label: "신규", color: "bg-gray-100 text-gray-600" },
   { value: "scheduled", label: "방문예정", color: "bg-blue-100 text-blue-700" },
   { value: "consulted", label: "상담완료", color: "bg-green-100 text-green-700" },
+  { value: "contracted", label: "계약완료", color: "bg-emerald-600 text-white" },
   { value: "prospect", label: "가망", color: "bg-amber-100 text-amber-700" },
   { value: "noshow", label: "노쇼", color: "bg-red-100 text-red-600" },
 ];
