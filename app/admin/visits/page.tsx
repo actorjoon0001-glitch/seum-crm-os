@@ -11,6 +11,7 @@ import { logout } from "@/app/login/actions";
 import VisitCalendar, { defaultVisitMonth } from "./VisitCalendar";
 import { vf, getPayload } from "./fields";
 import { StatusSelect, AssigneeInput } from "./RowControls";
+import { requireAuth } from "@/lib/require-auth";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -25,6 +26,7 @@ export default async function VisitsPage({
 }: {
   searchParams: Search;
 }) {
+  await requireAuth("/admin/visits");
   if (!hasSupabaseEnv()) {
     return (
       <main className="mx-auto max-w-6xl px-6 py-10">

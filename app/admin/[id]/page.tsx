@@ -9,6 +9,7 @@ import {
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 import { PROGRESS_FLAGS, showroomLabel, type Contract, type ContractDrawing } from "@/lib/types";
 import DrawingGallery from "./DrawingGallery";
+import { requireAuth } from "@/lib/require-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ export default async function ContractDetail({
 }: {
   params: { id: string };
 }) {
+  await requireAuth("/admin");
   if (!hasSupabaseEnv()) notFound();
 
   const supabase = createServiceClient();
