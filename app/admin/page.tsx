@@ -5,6 +5,7 @@ import { formatCurrency, formatDate, monthLabel } from "@/lib/format";
 import type { Contract } from "@/lib/types";
 import { showroomLabel } from "@/lib/types";
 import { logout } from "@/app/login/actions";
+import { requireAuth } from "@/lib/require-auth";
 
 function ym(date: string | null | undefined): string {
   return date ? String(date).slice(0, 7) : "";
@@ -46,6 +47,7 @@ export default async function AdminPage({
 }: {
   searchParams: Search;
 }) {
+  await requireAuth("/admin");
   if (!hasSupabaseEnv()) {
     return (
       <main className="mx-auto max-w-6xl px-6 py-10">

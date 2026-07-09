@@ -8,6 +8,7 @@ import {
 import { formatDateTime } from "@/lib/format";
 import type { VisitReservation } from "@/lib/types";
 import { getPayload, payloadEntries, vf } from "../fields";
+import { requireAuth } from "@/lib/require-auth";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -18,6 +19,7 @@ export default async function VisitDetail({
 }: {
   params: { id: string };
 }) {
+  await requireAuth("/admin/visits");
   if (!hasSupabaseEnv()) notFound();
 
   const supabase = createServiceClient();

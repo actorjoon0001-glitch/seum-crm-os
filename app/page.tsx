@@ -1,6 +1,10 @@
 import Link from "next/link";
+import { requireAuth } from "@/lib/require-auth";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  await requireAuth("/");
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center px-6 text-center">
       <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-seum-light px-4 py-1 text-sm font-semibold text-seum-dark">
