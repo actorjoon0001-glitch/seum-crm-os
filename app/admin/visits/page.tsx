@@ -10,7 +10,7 @@ import { showroomLabel } from "@/lib/types";
 import { logout } from "@/app/login/actions";
 import VisitCalendar, { defaultVisitMonth } from "./VisitCalendar";
 import { vf, getPayload } from "./fields";
-import { StatusSelect, AssigneeInput } from "./RowControls";
+import { StatusSelect, AssigneeInput, MemoInput, DeleteButton } from "./RowControls";
 import { requireAuth } from "@/lib/require-auth";
 
 export const dynamic = "force-dynamic";
@@ -153,7 +153,9 @@ export default async function VisitsPage({
                     <th className="px-4 py-3 font-medium">건축시기</th>
                     <th className="px-4 py-3 font-medium">담당 영업사원</th>
                     <th className="px-4 py-3 font-medium">상태</th>
+                    <th className="px-4 py-3 font-medium">메모</th>
                     <th className="px-4 py-3 font-medium">접수일</th>
+                    <th className="px-4 py-3 font-medium"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -197,8 +199,14 @@ export default async function VisitsPage({
                         <td className="px-4 py-3">
                           <StatusSelect id={r.id} status={r.status} />
                         </td>
+                        <td className="px-4 py-3">
+                          <MemoInput id={r.id} value={r.memo} />
+                        </td>
                         <td className="px-4 py-3 text-xs text-gray-400">
                           {formatDateTime(r.submitted_at)}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <DeleteButton id={r.id} name={name} />
                         </td>
                       </tr>
                     );
