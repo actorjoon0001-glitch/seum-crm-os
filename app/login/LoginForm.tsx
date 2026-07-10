@@ -39,6 +39,16 @@ export default function LoginForm({ next }: { next: string }) {
         />
       </div>
 
+      <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+        <input
+          type="checkbox"
+          name="remember"
+          defaultChecked
+          className="h-4 w-4 rounded border-gray-300 text-seum focus:ring-seum/30"
+        />
+        자동 로그인 (다음부터 비밀번호 입력 없이 유지)
+      </label>
+
       {state?.error && (
         <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
           {state.error}
