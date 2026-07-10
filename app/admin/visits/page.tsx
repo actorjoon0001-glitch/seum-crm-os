@@ -142,7 +142,7 @@ export default async function VisitsPage({
             </div>
           ) : (
             <div className="mt-4 overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
-              <table className="w-full min-w-[1440px] text-left text-sm">
+              <table className="w-full min-w-[1520px] text-left text-sm">
                 <thead className="border-b border-gray-100 bg-gray-50 text-xs uppercase text-gray-500">
                   <tr>
                     <th className="whitespace-nowrap px-4 py-3 font-medium">고객</th>
@@ -153,9 +153,9 @@ export default async function VisitsPage({
                     <th className="whitespace-nowrap px-4 py-3 font-medium">건축시기</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium">토지 보유</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium">토지 지번주소</th>
-                    <th className="whitespace-nowrap px-4 py-3 font-medium">상태</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium">고객 메모</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium">접수일</th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium">상태</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium">담당 영업사원</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium">직원 메모</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium"></th>
@@ -211,12 +211,9 @@ export default async function VisitsPage({
                         <td className="px-4 py-3 text-xs text-gray-500">
                           <div className="max-w-[11rem]">{landAddr || "-"}</div>
                         </td>
-                        <td className="px-4 py-3">
-                          <StatusSelect id={r.id} status={r.status} />
-                        </td>
                         <td className="px-4 py-3 align-top">
                           {custMemo ? (
-                            <div className="max-w-[12rem] whitespace-pre-wrap text-xs text-gray-600">
+                            <div className="w-56 whitespace-pre-wrap break-words text-xs leading-relaxed text-gray-600">
                               {custMemo}
                             </div>
                           ) : (
@@ -225,6 +222,9 @@ export default async function VisitsPage({
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-400">
                           {formatDateTime(r.submitted_at)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <StatusSelect id={r.id} status={r.status} />
                         </td>
                         <td className="px-4 py-3">
                           <AssigneeInput id={r.id} value={r.assigned_to} />
