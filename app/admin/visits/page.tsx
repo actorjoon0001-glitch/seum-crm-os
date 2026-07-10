@@ -153,11 +153,11 @@ export default async function VisitsPage({
                     <th className="whitespace-nowrap px-4 py-3 font-medium">건축시기</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium">토지 보유</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium">토지 지번주소</th>
-                    <th className="whitespace-nowrap px-4 py-3 font-medium">담당 영업사원</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium">상태</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium">고객 메모</th>
-                    <th className="whitespace-nowrap px-4 py-3 font-medium">직원 메모</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium">접수일</th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium">담당 영업사원</th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium">직원 메모</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium"></th>
                   </tr>
                 </thead>
@@ -212,9 +212,6 @@ export default async function VisitsPage({
                           <div className="max-w-[11rem]">{landAddr || "-"}</div>
                         </td>
                         <td className="px-4 py-3">
-                          <AssigneeInput id={r.id} value={r.assigned_to} />
-                        </td>
-                        <td className="px-4 py-3">
                           <StatusSelect id={r.id} status={r.status} />
                         </td>
                         <td className="px-4 py-3 align-top">
@@ -226,11 +223,14 @@ export default async function VisitsPage({
                             <span className="text-xs text-gray-300">-</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 align-top">
-                          <StaffMemoInput id={r.id} value={staffMemo} />
-                        </td>
                         <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-400">
                           {formatDateTime(r.submitted_at)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <AssigneeInput id={r.id} value={r.assigned_to} />
+                        </td>
+                        <td className="px-4 py-3 align-top">
+                          <StaffMemoInput id={r.id} value={staffMemo} />
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-right align-top">
                           <DeleteButton id={r.id} name={name} />
