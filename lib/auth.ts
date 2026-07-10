@@ -5,10 +5,15 @@
 
 export const AUTH_COOKIE = "seum_auth";
 
+// 이 앱은 seum-platform 포털 안에 iframe 으로 임베드되어 사용됩니다.
+// iframe(교차 사이트) 안에서 쿠키가 유지되려면 sameSite:"none" 이어야 하고,
+// none 은 secure:true 가 필수입니다. partitioned(CHIPS)는 최신 브라우저의
+// 서드파티 쿠키 차단 환경에서도 임베드별로 쿠키를 저장하도록 해줍니다.
 export const COOKIE_OPTS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "lax" as const,
+  secure: true,
+  sameSite: "none" as const,
+  partitioned: true,
   path: "/",
   maxAge: 60 * 60 * 24 * 30, // 30일
 };
