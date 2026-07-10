@@ -28,6 +28,13 @@ export function formatCurrency(value: number | null): string {
   return neg + parts.join(" ") + "원";
 }
 
+// 만원 단위로 저장된 값을 원 기준 한글 금액으로 표기 (예: 13066 → "1억 3,066만원")
+export function formatManWon(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(Number(value)))
+    return "-";
+  return formatCurrency(Number(value) * 10000);
+}
+
 // "2026-05" → "2026년 5월"
 export function monthLabel(ym: string): string {
   if (!ym) return "계약일 미정";

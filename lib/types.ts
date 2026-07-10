@@ -71,6 +71,42 @@ export function showroomLabel(id: string | null | undefined): string {
   return id;
 }
 
+// 전자계약 (econtracts) — 전자계약 작성 시스템이 저장하는 테이블
+export interface EContract {
+  id: number;
+  contract_no: string | null;
+  status: string | null;
+  client_name: string | null;
+  site_address: string | null;
+  showroom: string | null;
+  salesperson: string | null;
+  contract_date: string | null;
+  total_amount: number | null; // 만원 단위
+  data?: Record<string, unknown> | null; // 계약 상세 원본(jsonb)
+  created_at: string;
+  updated_at: string | null;
+}
+
+// 전자계약 상태 라벨/색상
+export const ECONTRACT_STATUS: Record<string, { label: string; color: string }> = {
+  draft: { label: "작성중", color: "bg-gray-100 text-gray-600" },
+  confirmed: { label: "확정", color: "bg-emerald-600 text-white" },
+  sent: { label: "발송", color: "bg-blue-100 text-blue-700" },
+  viewed: { label: "열람", color: "bg-indigo-100 text-indigo-700" },
+  signing: { label: "서명중", color: "bg-amber-100 text-amber-700" },
+  signed: { label: "서명완료", color: "bg-green-100 text-green-700" },
+  completed: { label: "완료", color: "bg-emerald-600 text-white" },
+  sealed: { label: "완료", color: "bg-emerald-600 text-white" },
+  cancelled: { label: "취소", color: "bg-red-100 text-red-600" },
+  canceled: { label: "취소", color: "bg-red-100 text-red-600" },
+  expired: { label: "만료", color: "bg-red-50 text-red-400" },
+};
+
+export function econtractStatusMeta(s: string | null | undefined) {
+  if (s && ECONTRACT_STATUS[s]) return ECONTRACT_STATUS[s];
+  return { label: s || "-", color: "bg-gray-100 text-gray-500" };
+}
+
 // 방문예약폼 (구글시트 → n8n → Supabase visit_reservations)
 export interface VisitReservation {
   id: string;
