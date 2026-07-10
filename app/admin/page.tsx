@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { Fragment } from "react";
-import { createServiceClient, hasSupabaseEnv, CONTRACTS_TABLE, DRAWINGS_TABLE } from "@/lib/supabase/server";
+import { createServiceClient, hasSupabaseEnv, CONTRACTS_TABLE, DRAWINGS_TABLE, ECONTRACTS_TABLE } from "@/lib/supabase/server";
 import { formatCurrency, formatDate, monthLabel } from "@/lib/format";
 import type { Contract } from "@/lib/types";
 import { showroomLabel } from "@/lib/types";
 import { logout } from "@/app/login/actions";
 import { requireAuth } from "@/lib/require-auth";
+import { ContractTabs } from "./ContractTabs";
 
 function ym(date: string | null | undefined): string {
   return date ? String(date).slice(0, 7) : "";
@@ -130,11 +131,21 @@ export default async function AdminPage({
   // 통계(필터 무관)
   const stats = await loadStats(supabase);
 
+  // 전자계약 건수(탭 표시용)
+  const { count: eContractCount } = await supabase
+    .from(ECONTRACTS_TABLE)
+    .select("id", { count: "exact", head: true });
+
   const totalPages = count ? Math.ceil(count / PAGE_SIZE) : 1;
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
       <Header />
+      <ContractTabs
+        active="manual"
+        manualCount={stats.total}
+        electronicCount={eContractCount ?? 0}
+      />
 
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="전체 계약" value={stats.total} />

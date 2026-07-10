@@ -16,6 +16,9 @@ export const LEADS_TABLE =
 // 방문예약폼(구글시트 → n8n → Supabase) 저장 테이블
 export const VISITS_TABLE =
   process.env.SUPABASE_VISITS_TABLE || "visit_reservations";
+// 전자계약 테이블
+export const ECONTRACTS_TABLE =
+  process.env.SUPABASE_ECONTRACTS_TABLE || "econtracts";
 
 /**
  * 서버 전용 Supabase 클라이언트.
