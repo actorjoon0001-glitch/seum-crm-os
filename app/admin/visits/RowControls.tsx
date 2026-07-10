@@ -138,7 +138,7 @@ export function DeleteButton({ id, name }: { id: string; name: string }) {
         startTransition(() => deleteVisit(id));
       }}
       title="삭제"
-      className="rounded-lg px-2 py-1 text-xs font-medium text-gray-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+      className="whitespace-nowrap rounded-lg px-2 py-1 text-xs font-medium text-gray-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
     >
       {pending ? "삭제중…" : "🗑 삭제"}
     </button>
