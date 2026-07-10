@@ -29,7 +29,7 @@ export default async function VisitsPage({
   await requireAuth("/admin/visits");
   if (!hasSupabaseEnv()) {
     return (
-      <main className="mx-auto max-w-6xl px-6 py-10">
+      <main className="mx-auto max-w-[1600px] px-6 py-10">
         <Header />
         <p className="mt-8 text-sm text-gray-400">Supabase 연결이 필요합니다.</p>
       </main>
@@ -76,7 +76,7 @@ export default async function VisitsPage({
   if (showroom) toggleBase.set("showroom", showroom);
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-10">
+    <main className="mx-auto max-w-[1600px] px-6 py-10">
       <Header count={rows.length} />
 
       {error ? (
@@ -142,21 +142,21 @@ export default async function VisitsPage({
             </div>
           ) : (
             <div className="mt-4 overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
-              <table className="w-full text-left text-sm">
+              <table className="w-full min-w-[1200px] text-left text-sm">
                 <thead className="border-b border-gray-100 bg-gray-50 text-xs uppercase text-gray-500">
                   <tr>
-                    <th className="px-4 py-3 font-medium">고객</th>
-                    <th className="px-4 py-3 font-medium">방문일시</th>
-                    <th className="px-4 py-3 font-medium">전시장</th>
-                    <th className="px-4 py-3 font-medium">관심유형 / 평수</th>
-                    <th className="px-4 py-3 font-medium">예산</th>
-                    <th className="px-4 py-3 font-medium">건축시기</th>
-                    <th className="px-4 py-3 font-medium">담당 영업사원</th>
-                    <th className="px-4 py-3 font-medium">상태</th>
-                    <th className="px-4 py-3 font-medium">고객 메모</th>
-                    <th className="px-4 py-3 font-medium">직원 메모</th>
-                    <th className="px-4 py-3 font-medium">접수일</th>
-                    <th className="px-4 py-3 font-medium"></th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium">고객</th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium">방문일시</th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium">전시장</th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium">관심유형 / 평수</th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium">예산</th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium">건축시기</th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium">담당 영업사원</th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium">상태</th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium">고객 메모</th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium">직원 메모</th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium">접수일</th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -188,7 +188,7 @@ export default async function VisitsPage({
                           </Link>
                           {phone && <div className="text-xs text-gray-400">{phone}</div>}
                         </td>
-                        <td className="px-4 py-3 text-xs text-gray-600">
+                        <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-600">
                           {vdate || "-"}
                           {vtime ? ` ${vtime}` : ""}
                         </td>
@@ -219,10 +219,10 @@ export default async function VisitsPage({
                         <td className="px-4 py-3 align-top">
                           <StaffMemoInput id={r.id} value={staffMemo} />
                         </td>
-                        <td className="px-4 py-3 text-xs text-gray-400">
+                        <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-400">
                           {formatDateTime(r.submitted_at)}
                         </td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="whitespace-nowrap px-4 py-3 text-right align-top">
                           <DeleteButton id={r.id} name={name} />
                         </td>
                       </tr>
