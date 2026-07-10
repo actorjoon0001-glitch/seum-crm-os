@@ -29,7 +29,7 @@ export function StatusSelect({
         setValue(next);
         startTransition(() => updateVisitStatus(id, next));
       }}
-      className={`cursor-pointer rounded-full border-0 px-2.5 py-1 text-xs font-semibold outline-none ring-1 ring-inset ring-black/5 ${meta.color} ${pending ? "opacity-50" : ""}`}
+      className={`w-full cursor-pointer rounded-full border-0 px-2 py-1 text-xs font-semibold outline-none ring-1 ring-inset ring-black/5 ${meta.color} ${pending ? "opacity-50" : ""}`}
     >
       {VISIT_STATUSES.map((s) => (
         <option key={s.value} value={s.value}>
@@ -71,7 +71,7 @@ export function AssigneeInput({
           if (e.key === "Enter") (e.target as HTMLInputElement).blur();
         }}
         placeholder="담당자"
-        className="w-24 rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-seum"
+        className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-seum"
       />
       {saved && (
         <span className="absolute -right-4 top-1.5 text-xs text-green-600">✓</span>
@@ -115,8 +115,8 @@ export function StaffMemoInput({
             (e.target as HTMLTextAreaElement).blur();
           }
         }}
-        placeholder="직원 메모 입력"
-        className="w-44 resize-y rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-seum"
+        placeholder="직원 메모"
+        className="w-full resize-y rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-seum"
       />
       {saved && (
         <span className="absolute -right-3 top-1 text-xs text-green-600">✓</span>

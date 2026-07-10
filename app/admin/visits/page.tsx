@@ -29,7 +29,7 @@ export default async function VisitsPage({
   await requireAuth("/admin/visits");
   if (!hasSupabaseEnv()) {
     return (
-      <main className="mx-auto max-w-[1600px] px-6 py-10">
+      <main className="mx-auto max-w-none px-4 py-8">
         <Header />
         <p className="mt-8 text-sm text-gray-400">Supabase 연결이 필요합니다.</p>
       </main>
@@ -76,7 +76,7 @@ export default async function VisitsPage({
   if (showroom) toggleBase.set("showroom", showroom);
 
   return (
-    <main className="mx-auto max-w-[1600px] px-6 py-10">
+    <main className="mx-auto max-w-none px-4 py-8">
       <Header count={rows.length} />
 
       {error ? (
@@ -142,23 +142,39 @@ export default async function VisitsPage({
             </div>
           ) : (
             <div className="mt-4 overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
-              <table className="w-full min-w-[1520px] text-left text-sm">
+              <table className="w-full table-fixed text-left text-xs">
+                <colgroup>
+                  <col className="w-[9%]" />{/* 고객 */}
+                  <col className="w-[7%]" />{/* 방문일시 */}
+                  <col className="w-[6%]" />{/* 전시장 */}
+                  <col className="w-[8%]" />{/* 관심유형/평수 */}
+                  <col className="w-[6%]" />{/* 예산 */}
+                  <col className="w-[5%]" />{/* 건축시기 */}
+                  <col className="w-[5%]" />{/* 토지 보유 */}
+                  <col className="w-[8%]" />{/* 토지 지번주소 */}
+                  <col className="w-[13%]" />{/* 고객 메모 */}
+                  <col className="w-[7%]" />{/* 접수일 */}
+                  <col className="w-[6%]" />{/* 상태 */}
+                  <col className="w-[7%]" />{/* 담당 영업사원 */}
+                  <col className="w-[8%]" />{/* 직원 메모 */}
+                  <col className="w-[5%]" />{/* 삭제 */}
+                </colgroup>
                 <thead className="border-b border-gray-100 bg-gray-50 text-xs uppercase text-gray-500">
                   <tr>
-                    <th className="whitespace-nowrap px-4 py-3 font-medium">고객</th>
-                    <th className="whitespace-nowrap px-4 py-3 font-medium">방문일시</th>
-                    <th className="whitespace-nowrap px-4 py-3 font-medium">전시장</th>
-                    <th className="whitespace-nowrap px-4 py-3 font-medium">관심유형 / 평수</th>
-                    <th className="whitespace-nowrap px-4 py-3 font-medium">예산</th>
-                    <th className="whitespace-nowrap px-4 py-3 font-medium">건축시기</th>
-                    <th className="whitespace-nowrap px-4 py-3 font-medium">토지 보유</th>
-                    <th className="whitespace-nowrap px-4 py-3 font-medium">토지 지번주소</th>
-                    <th className="whitespace-nowrap px-4 py-3 font-medium">고객 메모</th>
-                    <th className="whitespace-nowrap px-4 py-3 font-medium">접수일</th>
-                    <th className="whitespace-nowrap px-4 py-3 font-medium">상태</th>
-                    <th className="whitespace-nowrap px-4 py-3 font-medium">담당 영업사원</th>
-                    <th className="whitespace-nowrap px-4 py-3 font-medium">직원 메모</th>
-                    <th className="whitespace-nowrap px-4 py-3 font-medium"></th>
+                    <th className="px-2.5 py-2 font-medium">고객</th>
+                    <th className="px-2.5 py-2 font-medium">방문일시</th>
+                    <th className="px-2.5 py-2 font-medium">전시장</th>
+                    <th className="px-2.5 py-2 font-medium">관심유형 / 평수</th>
+                    <th className="px-2.5 py-2 font-medium">예산</th>
+                    <th className="px-2.5 py-2 font-medium">건축시기</th>
+                    <th className="px-2.5 py-2 font-medium">토지 보유</th>
+                    <th className="px-2.5 py-2 font-medium">토지 지번주소</th>
+                    <th className="px-2.5 py-2 font-medium">고객 메모</th>
+                    <th className="px-2.5 py-2 font-medium">접수일</th>
+                    <th className="px-2.5 py-2 font-medium">상태</th>
+                    <th className="px-2.5 py-2 font-medium">담당 영업사원</th>
+                    <th className="px-2.5 py-2 font-medium">직원 메모</th>
+                    <th className="px-2.5 py-2 font-medium"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -183,7 +199,7 @@ export default async function VisitsPage({
                     })();
                     return (
                       <tr key={r.id} className="hover:bg-gray-50/50">
-                        <td className="px-4 py-3">
+                        <td className="px-2.5 py-2">
                           <Link
                             href={`/admin/visits/${r.id}`}
                             className="font-semibold text-gray-900 hover:text-seum"
@@ -192,47 +208,47 @@ export default async function VisitsPage({
                           </Link>
                           {phone && <div className="text-xs text-gray-400">{phone}</div>}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-600">
+                        <td className="whitespace-nowrap px-2.5 py-2 text-xs text-gray-600">
                           {vdate || "-"}
                           {vtime ? ` ${vtime}` : ""}
                         </td>
-                        <td className="px-4 py-3 text-xs text-gray-500">
+                        <td className="px-2.5 py-2 text-xs text-gray-500">
                           {showroom === "-" ? "-" : showroom}
                         </td>
-                        <td className="px-4 py-3 text-xs text-gray-600">
+                        <td className="px-2.5 py-2 text-xs text-gray-600">
                           {interest || "-"}
                           {size ? <span className="text-gray-400"> · {size}</span> : null}
                         </td>
-                        <td className="px-4 py-3 text-xs text-gray-500">{budget || "-"}</td>
-                        <td className="px-4 py-3 text-xs text-gray-500">{build || "-"}</td>
-                        <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">
+                        <td className="px-2.5 py-2 text-xs text-gray-500">{budget || "-"}</td>
+                        <td className="px-2.5 py-2 text-xs text-gray-500">{build || "-"}</td>
+                        <td className="whitespace-nowrap px-2.5 py-2 text-xs text-gray-500">
                           {landOwned || "-"}
                         </td>
-                        <td className="px-4 py-3 text-xs text-gray-500">
+                        <td className="px-2.5 py-2 text-xs text-gray-500">
                           <div className="max-w-[11rem]">{landAddr || "-"}</div>
                         </td>
-                        <td className="px-4 py-3 align-top">
+                        <td className="px-2.5 py-2 align-top">
                           {custMemo ? (
-                            <div className="w-56 whitespace-pre-wrap break-words text-xs leading-relaxed text-gray-600">
+                            <div className="whitespace-pre-wrap break-words text-xs leading-snug text-gray-600">
                               {custMemo}
                             </div>
                           ) : (
                             <span className="text-xs text-gray-300">-</span>
                           )}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-400">
+                        <td className="whitespace-nowrap px-2.5 py-2 text-xs text-gray-400">
                           {formatDateTime(r.submitted_at)}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-2.5 py-2">
                           <StatusSelect id={r.id} status={r.status} />
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-2.5 py-2">
                           <AssigneeInput id={r.id} value={r.assigned_to} />
                         </td>
-                        <td className="px-4 py-3 align-top">
+                        <td className="px-2.5 py-2 align-top">
                           <StaffMemoInput id={r.id} value={staffMemo} />
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right align-top">
+                        <td className="whitespace-nowrap px-2.5 py-2 text-right align-top">
                           <DeleteButton id={r.id} name={name} />
                         </td>
                       </tr>
