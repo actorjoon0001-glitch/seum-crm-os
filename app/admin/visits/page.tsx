@@ -153,7 +153,8 @@ export default async function VisitsPage({
                     <th className="px-4 py-3 font-medium">건축시기</th>
                     <th className="px-4 py-3 font-medium">담당 영업사원</th>
                     <th className="px-4 py-3 font-medium">상태</th>
-                    <th className="px-4 py-3 font-medium">메모 (고객 / 직원)</th>
+                    <th className="px-4 py-3 font-medium">고객 메모</th>
+                    <th className="px-4 py-3 font-medium">직원 메모</th>
                     <th className="px-4 py-3 font-medium">접수일</th>
                     <th className="px-4 py-3 font-medium"></th>
                   </tr>
@@ -207,11 +208,15 @@ export default async function VisitsPage({
                           <StatusSelect id={r.id} status={r.status} />
                         </td>
                         <td className="px-4 py-3 align-top">
-                          {custMemo && (
-                            <div className="mb-1 max-w-[11rem] whitespace-pre-wrap rounded-md bg-gray-50 px-2 py-1 text-xs text-gray-600">
-                              <span className="text-gray-400">고객:</span> {custMemo}
+                          {custMemo ? (
+                            <div className="max-w-[12rem] whitespace-pre-wrap text-xs text-gray-600">
+                              {custMemo}
                             </div>
+                          ) : (
+                            <span className="text-xs text-gray-300">-</span>
                           )}
+                        </td>
+                        <td className="px-4 py-3 align-top">
                           <StaffMemoInput id={r.id} value={staffMemo} />
                         </td>
                         <td className="px-4 py-3 text-xs text-gray-400">
