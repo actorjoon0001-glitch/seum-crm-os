@@ -142,7 +142,7 @@ export default async function VisitsPage({
             </div>
           ) : (
             <div className="mt-4 overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
-              <table className="w-full min-w-[1200px] text-left text-sm">
+              <table className="w-full min-w-[1440px] text-left text-sm">
                 <thead className="border-b border-gray-100 bg-gray-50 text-xs uppercase text-gray-500">
                   <tr>
                     <th className="whitespace-nowrap px-4 py-3 font-medium">고객</th>
@@ -151,6 +151,8 @@ export default async function VisitsPage({
                     <th className="whitespace-nowrap px-4 py-3 font-medium">관심유형 / 평수</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium">예산</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium">건축시기</th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium">토지 보유</th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium">토지 지번주소</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium">담당 영업사원</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium">상태</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium">고객 메모</th>
@@ -168,6 +170,8 @@ export default async function VisitsPage({
                     const size = vf(r, ["pyeong", "size"], "size");
                     const budget = vf(r, ["budget"], "budget");
                     const build = vf(r, ["buildTimeline"]);
+                    const landOwned = vf(r, ["landOwned"], "land_owned");
+                    const landAddr = vf(r, ["landAddress", "addrJibun"], "addr_jibun");
                     const name = vf(r, ["name"], "name") || "(이름없음)";
                     const phone = vf(r, ["phone"], "phone");
                     // 고객이 폼에 쓴 메모(읽기전용) / 직원 메모(payload.staffMemo, 편집)
@@ -201,6 +205,12 @@ export default async function VisitsPage({
                         </td>
                         <td className="px-4 py-3 text-xs text-gray-500">{budget || "-"}</td>
                         <td className="px-4 py-3 text-xs text-gray-500">{build || "-"}</td>
+                        <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">
+                          {landOwned || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-500">
+                          <div className="max-w-[11rem]">{landAddr || "-"}</div>
+                        </td>
                         <td className="px-4 py-3">
                           <AssigneeInput id={r.id} value={r.assigned_to} />
                         </td>
