@@ -10,7 +10,7 @@ import { showroomLabel } from "@/lib/types";
 import { logout } from "@/app/login/actions";
 import VisitCalendar, { defaultVisitMonth } from "./VisitCalendar";
 import { vf, getPayload } from "./fields";
-import { StatusSelect, AssigneeInput, MemoInput, DeleteButton } from "./RowControls";
+import { StatusSelect, AssigneeInput, StaffMemoInput, DeleteButton } from "./RowControls";
 import { requireAuth } from "@/lib/require-auth";
 
 export const dynamic = "force-dynamic";
@@ -153,7 +153,7 @@ export default async function VisitsPage({
                     <th className="px-4 py-3 font-medium">건축시기</th>
                     <th className="px-4 py-3 font-medium">담당 영업사원</th>
                     <th className="px-4 py-3 font-medium">상태</th>
-                    <th className="px-4 py-3 font-medium">메모</th>
+                    <th className="px-4 py-3 font-medium">메모 (고객 / 직원)</th>
                     <th className="px-4 py-3 font-medium">접수일</th>
                     <th className="px-4 py-3 font-medium"></th>
                   </tr>
@@ -169,6 +169,13 @@ export default async function VisitsPage({
                     const build = vf(r, ["buildTimeline"]);
                     const name = vf(r, ["name"], "name") || "(이름없음)";
                     const phone = vf(r, ["phone"], "phone");
+                    // 고객이 폼에 쓴 메모(읽기전용) / 직원 메모(payload.staffMemo, 편집)
+                    const custMemo = vf(r, ["memo"], "memo");
+                    const staffMemo = (() => {
+                      const p = getPayload(r);
+                      const v = p?.staffMemo;
+                      return typeof v === "string" ? v : "";
+                    })();
                     return (
                       <tr key={r.id} className="hover:bg-gray-50/50">
                         <td className="px-4 py-3">
@@ -199,8 +206,13 @@ export default async function VisitsPage({
                         <td className="px-4 py-3">
                           <StatusSelect id={r.id} status={r.status} />
                         </td>
-                        <td className="px-4 py-3">
-                          <MemoInput id={r.id} value={r.memo} />
+                        <td className="px-4 py-3 align-top">
+                          {custMemo && (
+                            <div className="mb-1 max-w-[11rem] whitespace-pre-wrap rounded-md bg-gray-50 px-2 py-1 text-xs text-gray-600">
+                              <span className="text-gray-400">고객:</span> {custMemo}
+                            </div>
+                          )}
+                          <StaffMemoInput id={r.id} value={staffMemo} />
                         </td>
                         <td className="px-4 py-3 text-xs text-gray-400">
                           {formatDateTime(r.submitted_at)}

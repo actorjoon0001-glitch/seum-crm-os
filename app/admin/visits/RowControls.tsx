@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import {
   updateVisitStatus,
   updateVisitAssignee,
-  updateVisitMemo,
+  updateVisitStaffMemo,
   deleteVisit,
 } from "./actions";
 import { VISIT_STATUSES, statusMeta } from "./fields";
@@ -80,7 +80,7 @@ export function AssigneeInput({
   );
 }
 
-export function MemoInput({
+export function StaffMemoInput({
   id,
   value,
 }: {
@@ -94,7 +94,7 @@ export function MemoInput({
   const save = () => {
     if (val === (value || "")) return;
     startTransition(async () => {
-      await updateVisitMemo(id, val.trim());
+      await updateVisitStaffMemo(id, val.trim());
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
     });
@@ -115,7 +115,7 @@ export function MemoInput({
             (e.target as HTMLTextAreaElement).blur();
           }
         }}
-        placeholder="메모 입력"
+        placeholder="직원 메모 입력"
         className="w-44 resize-y rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs outline-none focus:border-seum"
       />
       {saved && (
