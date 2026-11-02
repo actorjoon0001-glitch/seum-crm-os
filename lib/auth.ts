@@ -4,6 +4,8 @@
 // (미들웨어=Edge, 서버액션=Node 모두에서 Web Crypto 사용)
 
 export const AUTH_COOKIE = "seum_auth";
+// 영업일지에서 마지막으로 쓴 영업사원 이름(자동 선택용)
+export const SP_COOKIE = "seum_sp";
 
 // 이 앱은 seum-platform 포털 안에 iframe 으로 임베드되어 사용됩니다.
 // iframe(교차 사이트) 안에서 쿠키가 유지되려면 sameSite:"none" 이어야 하고,

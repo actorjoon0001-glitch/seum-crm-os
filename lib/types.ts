@@ -189,3 +189,65 @@ export const CALL_STATUSES: { value: string; label: string; color: string }[] = 
 export function callStatusMeta(v: string | null | undefined) {
   return CALL_STATUSES.find((s) => s.value === v) ?? CALL_STATUSES[0];
 }
+
+// 영업일지 (sales_logs) — 영업사원이 매일 상담한 고객을 1건씩 기록, KPI 원천
+export interface SalesLog {
+  id: string;
+  log_date: string; // YYYY-MM-DD
+  salesperson: string;
+  customer_name: string | null;
+  phone: string | null;
+  phone_digits: string | null;
+  source: string | null;
+  activity: string;
+  stage: string;
+  is_new: boolean;
+  region: string | null;
+  interest: string | null;
+  contract_amount: number | null;
+  next_action_date: string | null;
+  next_action: string | null;
+  memo: string | null;
+  created_at: string;
+  updated_at: string | null;
+}
+
+type Opt = { value: string; label: string; color: string };
+
+// 활동 유형
+export const LOG_ACTIVITIES: Opt[] = [
+  { value: "call", label: "전화상담", color: "bg-sky-100 text-sky-700" },
+  { value: "message", label: "문자·카톡", color: "bg-gray-100 text-gray-600" },
+  { value: "visit", label: "방문상담", color: "bg-indigo-100 text-indigo-700" },
+  { value: "site", label: "현장답사", color: "bg-violet-100 text-violet-700" },
+  { value: "quote", label: "견적제출", color: "bg-amber-100 text-amber-700" },
+  { value: "contract", label: "계약", color: "bg-emerald-600 text-white" },
+  { value: "etc", label: "기타", color: "bg-gray-100 text-gray-500" },
+];
+
+// 활동 후 고객 단계
+export const LOG_STAGES: Opt[] = [
+  { value: "consulting", label: "상담중", color: "bg-sky-100 text-sky-700" },
+  { value: "prospect", label: "가망", color: "bg-amber-100 text-amber-700" },
+  { value: "quoted", label: "견적", color: "bg-orange-100 text-orange-700" },
+  { value: "contracted", label: "계약", color: "bg-emerald-600 text-white" },
+  { value: "hold", label: "보류", color: "bg-gray-100 text-gray-600" },
+  { value: "lost", label: "이탈", color: "bg-red-100 text-red-600" },
+];
+
+// 유입경로
+export const LOG_SOURCES: Opt[] = [
+  { value: "visit", label: "방문예약", color: "" },
+  { value: "main", label: "대표번호", color: "" },
+  { value: "mobile", label: "영업사원 핸드폰", color: "" },
+  { value: "referral", label: "소개", color: "" },
+  { value: "online", label: "온라인·SNS", color: "" },
+  { value: "existing", label: "기존 고객", color: "" },
+  { value: "etc", label: "기타", color: "" },
+];
+
+const pick = (list: Opt[], v: string | null | undefined): Opt =>
+  list.find((o) => o.value === v) ?? { value: v ?? "", label: v || "-", color: "bg-gray-100 text-gray-500" };
+export const activityMeta = (v: string | null | undefined) => pick(LOG_ACTIVITIES, v);
+export const stageMeta = (v: string | null | undefined) => pick(LOG_STAGES, v);
+export const sourceMeta = (v: string | null | undefined) => pick(LOG_SOURCES, v);
