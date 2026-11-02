@@ -7,7 +7,7 @@ import {
 import { formatDateTime } from "@/lib/format";
 import type { VisitReservation } from "@/lib/types";
 import { showroomLabel } from "@/lib/types";
-import { logout } from "@/app/login/actions";
+import AppNav from "@/app/AppNav";
 import VisitCalendar, { defaultVisitMonth } from "./VisitCalendar";
 import { vf, getPayload } from "./fields";
 import { StatusSelect, AssigneeInput, StaffMemoInput, DeleteButton } from "./RowControls";
@@ -29,7 +29,7 @@ export default async function VisitsPage({
   await requireAuth("/admin/visits");
   if (!hasSupabaseEnv()) {
     return (
-      <main className="mx-auto max-w-none px-4 py-8">
+      <main className="mx-auto max-w-none px-4 py-6">
         <Header />
         <p className="mt-8 text-sm text-gray-400">Supabase 연결이 필요합니다.</p>
       </main>
@@ -76,7 +76,7 @@ export default async function VisitsPage({
   if (showroom) toggleBase.set("showroom", showroom);
 
   return (
-    <main className="mx-auto max-w-none px-4 py-8">
+    <main className="mx-auto max-w-none px-4 py-6">
       <Header count={rows.length} />
 
       {error ? (
@@ -279,31 +279,14 @@ function SetupNotice({ message }: { message: string }) {
 
 function Header({ count }: { count?: number }) {
   return (
-    <header className="flex items-center justify-between">
-      <div>
-        <Link href="/" className="text-xs text-gray-400 hover:text-gray-600">
-          세움 홈
-        </Link>
-        <h1 className="text-2xl font-bold">
-          방문예약 <span className="text-seum">고객</span>
-        </h1>
+    <>
+      <AppNav active="visits" />
+      <div className="mt-5">
+        <h1 className="text-2xl font-bold">🏠 방문예약 고객</h1>
         <p className="mt-0.5 text-sm text-gray-500">
           방문예약폼 접수 고객 {count !== undefined ? `· ${count}건` : ""}
         </p>
       </div>
-      <div className="flex items-center gap-2">
-        <Link
-          href="/admin"
-          className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:border-seum hover:text-seum"
-        >
-          계약 고객 →
-        </Link>
-        <form action={logout}>
-          <button className="rounded-xl px-3 py-2 text-sm text-gray-400 hover:text-gray-600">
-            로그아웃
-          </button>
-        </form>
-      </div>
-    </header>
+    </>
   );
 }

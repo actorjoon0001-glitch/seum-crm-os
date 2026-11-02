@@ -11,7 +11,7 @@ export default function LoginPage({
 }: {
   searchParams: { next?: string };
 }) {
-  const next = searchParams.next || "/admin";
+  const next = searchParams.next || "/";
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6">

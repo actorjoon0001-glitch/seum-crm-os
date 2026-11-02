@@ -13,8 +13,8 @@ export async function login(
   formData: FormData
 ): Promise<LoginState> {
   const pw = String(formData.get("password") ?? "");
-  const nextRaw = String(formData.get("next") ?? "/admin");
-  const next = nextRaw.startsWith("/") && !nextRaw.startsWith("//") ? nextRaw : "/admin";
+  const nextRaw = String(formData.get("next") ?? "/");
+  const next = nextRaw.startsWith("/") && !nextRaw.startsWith("//") ? nextRaw : "/";
   // "자동 로그인" 체크박스. 켜져 있으면 30일 유지, 꺼져 있으면 브라우저 종료 시 로그아웃.
   const remember = formData.get("remember") != null;
 
