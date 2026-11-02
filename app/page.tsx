@@ -5,6 +5,7 @@ import {
   hasSupabaseEnv,
   VISITS_TABLE,
   CALLS_TABLE,
+  LOGS_TABLE,
 } from "@/lib/supabase/server";
 import {
   CALL_CHANNELS,
@@ -13,7 +14,8 @@ import {
   type CallLead,
   type VisitReservation,
 } from "@/lib/types";
-import { kstMonthStartISO, kstShort, kstTodayStartISO } from "@/lib/kst";
+import { kstMonthStartISO, kstShort, kstToday, kstTodayStartISO } from "@/lib/kst";
+import { isMissingTable as isMissingDbTable } from "@/lib/db-errors";
 import { vf, statusMeta } from "@/app/admin/visits/fields";
 import AppNav from "@/app/AppNav";
 import { isMissingTable } from "@/app/admin/calls/SetupNotice";
@@ -50,6 +52,7 @@ export default async function Home() {
   await requireAuth("/");
 
   let columns: Column[] = [];
+  let journal: { writers: number; total: number; contracts: number; missing: boolean } | null = null;
   if (hasSupabaseEnv()) {
     const supabase = createServiceClient();
     const todayStart = kstTodayStartISO();
@@ -166,7 +169,27 @@ export default async function Home() {
       return col;
     };
 
-    columns = await Promise.all([visitColumn(), callColumn("main"), callColumn("mobile")]);
+    // ---------- 오늘 영업일지 현황 ----------
+    const journalStats = async () => {
+      const { data, error } = await supabase
+        .from(LOGS_TABLE)
+        .select("salesperson,activity")
+        .eq("log_date", kstToday())
+        .limit(5000);
+      if (error) return { writers: 0, total: 0, contracts: 0, missing: isMissingDbTable(error, "sales_logs") };
+      const list = (data ?? []) as { salesperson: string; activity: string }[];
+      return {
+        writers: new Set(list.map((r) => r.salesperson)).size,
+        total: list.length,
+        contracts: list.filter((r) => r.activity === "contract").length,
+        missing: false,
+      };
+    };
+
+    [columns, journal] = await Promise.all([
+      Promise.all([visitColumn(), callColumn("main"), callColumn("mobile")]),
+      journalStats(),
+    ]);
   }
 
   const sum = (k: keyof Stats) => columns.reduce((a, c) => a + (c.stats?.[k] ?? 0), 0);
@@ -186,6 +209,36 @@ export default async function Home() {
             <Total label="신규 · 미처리" value={sum("pending")} />
             <Total label="전체 고객 DB" value={sum("total")} />
           </div>
+
+          {/* 오늘 영업일지 현황 */}
+          {journal && (
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm">
+              <span className="font-bold">📝 오늘 영업일지</span>
+              {journal.missing ? (
+                <span className="text-amber-700">영업일지 테이블을 처음 한 번 만들어야 합니다.</span>
+              ) : (
+                <>
+                  <span className="text-gray-600">
+                    작성 <b className="text-gray-900">{journal.writers}</b>명
+                  </span>
+                  <span className="text-gray-600">
+                    활동 <b className="text-gray-900">{journal.total}</b>건
+                  </span>
+                  <span className="text-gray-600">
+                    계약 <b className="text-gray-900">{journal.contracts}</b>건
+                  </span>
+                </>
+              )}
+              <span className="ml-auto flex gap-2">
+                <Link href="/admin/logs" className="rounded-lg bg-seum px-3 py-1.5 text-xs font-semibold text-white hover:bg-seum-dark">
+                  일지 쓰기 →
+                </Link>
+                <Link href="/admin/kpi" className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-seum">
+                  KPI 보기 →
+                </Link>
+              </span>
+            </div>
+          )}
 
           {/* 3개 카테고리 한눈에 */}
           <div className="mt-5 grid gap-4 lg:grid-cols-3">

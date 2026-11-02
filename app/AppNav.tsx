@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { logout } from "@/app/login/actions";
 
-export type NavKey = "home" | "visits" | "main" | "mobile";
+export type NavKey = "home" | "visits" | "main" | "mobile" | "logs" | "kpi";
 
 const ITEMS: { key: NavKey; href: string; label: string }[] = [
   { key: "home", href: "/", label: "📊 한눈에 보기" },
   { key: "visits", href: "/admin/visits", label: "🏠 방문예약" },
   { key: "main", href: "/admin/calls/main", label: "☎️ 대표번호" },
   { key: "mobile", href: "/admin/calls/mobile", label: "📱 영업사원 핸드폰" },
+  { key: "logs", href: "/admin/logs", label: "📝 영업일지" },
+  { key: "kpi", href: "/admin/kpi", label: "📈 KPI" },
 ];
 
 // 모든 화면 상단 공통 내비게이션 (3개 고객 카테고리 + 한눈에 보기)

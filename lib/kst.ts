@@ -49,3 +49,34 @@ export function kstShort(iso: string | null | undefined): string {
     k.getUTCMinutes()
   )}`;
 }
+
+// 오늘 날짜(KST) "YYYY-MM-DD"
+export function kstToday(): string {
+  const k = kstNow();
+  return `${k.getUTCFullYear()}-${pad(k.getUTCMonth() + 1)}-${pad(k.getUTCDate())}`;
+}
+
+export function isDateStr(v: string | null | undefined): v is string {
+  return !!v && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v));
+}
+
+// "YYYY-MM-DD" 에 n일 더하기
+export function addDays(date: string, n: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+// "YYYY-MM-DD" → "11.02 (월)"
+export function dateLabel(date: string | null | undefined): string {
+  if (!date) return "-";
+  const d = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return date;
+  const w = "일월화수목금토"[d.getUTCDay()];
+  return `${pad(d.getUTCMonth() + 1)}.${pad(d.getUTCDate())} (${w})`;
+}
+
+// "YYYY-MM-DD" 00:00 KST 를 ISO(UTC) 로
+export function kstDayStartISO(date: string): string {
+  return new Date(Date.parse(`${date}T00:00:00Z`) - KST_OFFSET_MS).toISOString();
+}
