@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "세움 고객관리OS",
-  description: "방문예약 및 call-os 고객 통합 관리 시스템",
+  description: "방문예약 · 대표번호 · 영업사원 핸드폰 고객 통합 관리 시스템",
 };
 
 export default function RootLayout({

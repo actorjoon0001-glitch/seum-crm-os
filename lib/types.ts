@@ -136,3 +136,56 @@ export interface VisitReservation {
   // 폼 원본 전체(신규 폼 대응). 폼이 바뀌어도 여기에 모두 저장됨.
   payload?: Record<string, unknown> | string | null;
 }
+
+// 전화 고객 DB (call_leads) — 대표번호 / 영업사원 핸드폰, 직원이 수기 등록
+export type CallChannel = "main" | "mobile";
+
+export interface CallLead {
+  id: string;
+  channel: CallChannel;
+  called_at: string | null;
+  name: string | null;
+  phone: string | null;
+  salesperson: string | null;
+  region: string | null;
+  inquiry: string | null;
+  status: string | null;
+  memo: string | null;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export const CALL_CHANNELS: Record<
+  CallChannel,
+  { label: string; short: string; icon: string; desc: string }
+> = {
+  main: {
+    label: "대표번호 전화 고객",
+    short: "대표번호",
+    icon: "☎️",
+    desc: "회사 대표번호로 걸려온 문의 고객 (수기 등록)",
+  },
+  mobile: {
+    label: "영업사원 핸드폰 전화 고객",
+    short: "영업사원 핸드폰",
+    icon: "📱",
+    desc: "개인 영업사원 핸드폰으로 들어온 문의 고객 DB",
+  },
+};
+
+export function isCallChannel(v: string | null | undefined): v is CallChannel {
+  return v === "main" || v === "mobile";
+}
+
+export const CALL_STATUSES: { value: string; label: string; color: string }[] = [
+  { value: "new", label: "신규", color: "bg-gray-100 text-gray-600" },
+  { value: "callback", label: "재통화 필요", color: "bg-blue-100 text-blue-700" },
+  { value: "visit", label: "방문예약 전환", color: "bg-indigo-100 text-indigo-700" },
+  { value: "prospect", label: "가망", color: "bg-amber-100 text-amber-700" },
+  { value: "contracted", label: "계약완료", color: "bg-emerald-600 text-white" },
+  { value: "closed", label: "종결", color: "bg-red-100 text-red-600" },
+];
+
+export function callStatusMeta(v: string | null | undefined) {
+  return CALL_STATUSES.find((s) => s.value === v) ?? CALL_STATUSES[0];
+}

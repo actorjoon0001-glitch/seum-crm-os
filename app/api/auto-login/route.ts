@@ -14,9 +14,9 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const params = req.nextUrl.searchParams;
   const key = params.get("key") ?? "";
-  const nextRaw = params.get("next") ?? "/admin";
+  const nextRaw = params.get("next") ?? "/";
   const next =
-    nextRaw.startsWith("/") && !nextRaw.startsWith("//") ? nextRaw : "/admin";
+    nextRaw.startsWith("/") && !nextRaw.startsWith("//") ? nextRaw : "/";
 
   const expected = process.env.PORTAL_KEY || process.env.ADMIN_PASSWORD || "";
 
