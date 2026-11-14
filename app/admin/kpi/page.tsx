@@ -10,6 +10,7 @@ import { isMissingTable } from "@/lib/db-errors";
 import { SALES_DB_SQL } from "@/lib/sales-db-sql";
 import {
   computeKpi,
+  GRADES,
   INFLOW_ROUTES,
   KPI_STAGES,
   KPI_WEIGHTS,
@@ -86,7 +87,7 @@ export default async function KpiPage({ searchParams }: { searchParams: Search }
   const [custRes, logRes] = await Promise.all([
     supabase
       .from(CUST)
-      .select("id,assignee,received_date,inflow_type,inflow_route,stage,next_action_date")
+      .select("*")
       .limit(50000),
     supabase
       .from(LOGS)
@@ -144,6 +145,12 @@ export default async function KpiPage({ searchParams }: { searchParams: Search }
     .sort((a, b) => b.n - a.n);
   // 현재 진행단계 분포 (전체 보유 DB)
   const byStage = STAGES.map((s) => ({ label: s.value, n: customers.filter((c) => c.stage === s.value).length }));
+  // 고객등급 분포 (진행 중 고객 기준)
+  const openCustomers = customers.filter((c) => c.stage !== "계약완료" && c.stage !== "계약보류");
+  const byGrade = [
+    ...GRADES.map((g) => ({ label: `${g.value} ${g.desc}`, n: openCustomers.filter((c) => c.grade === g.value).length })),
+    { label: "미분류", n: openCustomers.filter((c) => !c.grade).length },
+  ];
 
   return shell(
     <>
@@ -213,9 +220,10 @@ export default async function KpiPage({ searchParams }: { searchParams: Search }
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-3">
         <BarList title="유입경로별 신규 DB (기간 내)" items={byRoute} empty="기간 내 신규 DB가 없습니다." />
         <BarList title="진행단계 현황 (현재 보유 DB 전체)" items={byStage} empty="고객 DB가 없습니다." />
+        <BarList title="고객등급 현황 (진행 중 고객)" items={byGrade} empty="진행 중 고객이 없습니다." wide />
       </div>
 
       <div className="rounded-2xl border border-gray-200 bg-white p-4 text-xs leading-relaxed text-gray-500">
@@ -294,7 +302,17 @@ function KpiTr({ r, rank, maxScore, branch }: { r: KpiRow; rank: number; maxScor
   );
 }
 
-function BarList({ title, items, empty }: { title: string; items: { label: string; n: number }[]; empty: string }) {
+function BarList({
+  title,
+  items,
+  empty,
+  wide,
+}: {
+  title: string;
+  items: { label: string; n: number }[];
+  empty: string;
+  wide?: boolean;
+}) {
   const max = Math.max(1, ...items.map((i) => i.n));
   const total = items.reduce((a, i) => a + i.n, 0);
   return (
@@ -306,7 +324,7 @@ function BarList({ title, items, empty }: { title: string; items: { label: strin
         <ul className="mt-3 space-y-1.5">
           {items.map((i) => (
             <li key={i.label} className="flex items-center gap-2 text-xs" title={`${i.label} ${i.n}명`}>
-              <span className="w-16 shrink-0 text-gray-600">{i.label}</span>
+              <span className={`${wide ? "w-44 truncate" : "w-16"} shrink-0 text-gray-600`}>{i.label}</span>
               <div className="h-3 flex-1 rounded bg-gray-100">
                 {i.n > 0 && <div className="h-3 rounded bg-seum" style={{ width: `${Math.max(2, (i.n / max) * 100)}%` }} />}
               </div>

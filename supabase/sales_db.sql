@@ -17,6 +17,7 @@ create table if not exists public.sales_customers (
   branch            text,                        -- 담당지점 (예: 마곡)
   assignee          text not null,               -- 배정담당자 (영업사원)
   stage             text not null default '1차상담', -- 진행단계
+  grade             text,                        -- 고객등급 A~E
   memo              text,                        -- 최근 상담 내용
   last_contact_date date,                        -- 최근 기록일
   next_action_date  date,                        -- 다음 연락 예정일
@@ -24,6 +25,9 @@ create table if not exists public.sales_customers (
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now()
 );
+
+-- 고객등급 컬럼 (기존 테이블에도 추가)
+alter table public.sales_customers add column if not exists grade text;
 
 create index if not exists sales_customers_assignee_idx on public.sales_customers (assignee, received_date desc);
 create index if not exists sales_customers_phone_idx on public.sales_customers (phone_digits);

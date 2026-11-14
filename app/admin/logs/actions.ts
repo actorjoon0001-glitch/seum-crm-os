@@ -11,7 +11,7 @@ import {
 } from "@/lib/supabase/server";
 import { isAuthed } from "@/lib/require-auth";
 import { COOKIE_OPTS, SP_COOKIE } from "@/lib/auth";
-import { INFLOW_ROUTES, INFLOW_TYPES, isStage } from "@/lib/sales-db";
+import { INFLOW_ROUTES, INFLOW_TYPES, isGrade, isStage } from "@/lib/sales-db";
 import { isDateStr, kstDateOf, kstToday } from "@/lib/kst";
 
 export interface FormResult {
@@ -35,6 +35,10 @@ function rememberSp(name: string) {
 }
 
 const digits = (v: string) => v.replace(/\D/g, "") || null;
+
+// grade 컬럼을 아직 추가하지 않은 DB 인지 (SQL 실행 전에도 나머지 기능은 동작하도록)
+const gradeMissing = (e: { message?: string } | null) => !!e && /grade/.test(e.message ?? "");
+
 
 // DB번호: SE-<접수연도>-<4자리 일련번호>
 async function nextDbNo(supabase: Supa, year: string): Promise<string> {
@@ -61,6 +65,7 @@ type NewCustomer = {
   branch: string | null;
   assignee: string;
   stage: string;
+  grade: string | null;
   memo: string | null;
   next_action_date: string | null;
   source_ref: string | null;
@@ -85,13 +90,17 @@ async function insertCustomer(supabase: Supa, c: NewCustomer): Promise<FormResul
   const year = c.received_date.slice(0, 4);
   for (let attempt = 0; attempt < 4; attempt++) {
     const db_no = await nextDbNo(supabase, year);
-    const { data, error } = await supabase
-      .from(CUST)
-      .insert({ ...c, db_no, phone_digits, last_contact_date: kstToday() })
-      .select("id,db_no")
-      .single();
+    const { grade, ...rest } = c;
+    const row = { ...rest, ...(grade ? { grade } : {}), db_no, phone_digits, last_contact_date: kstToday() };
+    let { data, error } = await supabase.from(CUST).insert(row).select("id,db_no").single();
+    if (gradeMissing(error)) {
+      // 고객등급 컬럼이 아직 없으면 등급 없이 저장
+      const { grade: _g, ...noGrade } = row as typeof row & { grade?: string };
+      void _g;
+      ({ data, error } = await supabase.from(CUST).insert(noGrade).select("id,db_no").single());
+    }
     if (error?.code === "23505") continue; // DB번호 동시 발급 충돌 → 재시도
-    if (error) return { ok: false, error: `저장 실패: ${error.message}` };
+    if (error || !data) return { ok: false, error: `저장 실패: ${error?.message ?? "알 수 없는 오류"}` };
     await supabase.from(LOGS).insert({
       customer_id: data.id,
       assignee: c.assignee,
@@ -119,6 +128,7 @@ function readCustomerForm(formData: FormData): NewCustomer | string {
     branch: get("branch") || null,
     assignee: get("assignee"),
     stage: get("stage") || "1차상담",
+    grade: isGrade(get("grade")) ? get("grade") : null,
     memo: get("memo") || null,
     next_action_date: isDateStr(get("next_action_date")) ? get("next_action_date") : null,
     source_ref: null,
@@ -150,21 +160,30 @@ export async function updateCustomer(prev: FormResult | null, formData: FormData
   const c = readCustomerForm(formData);
   if (typeof c === "string") return { ok: false, error: c };
   const supabase = createServiceClient();
-  const { data: cur, error: e1 } = await supabase.from(CUST).select("stage").eq("id", id).single();
+  const { data: cur, error: e1 } = await supabase.from(CUST).select("*").eq("id", id).single();
   if (e1) return { ok: false, error: e1.message };
 
   const { source_ref: _ignore, memo: _memo, ...fields } = c;
   void _ignore;
   void _memo;
-  const { error } = await supabase
-    .from(CUST)
-    .update({
-      ...fields,
-      phone_digits: c.phone ? digits(c.phone) : null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id);
+  const patch = { ...fields, phone_digits: c.phone ? digits(c.phone) : null, updated_at: new Date().toISOString() };
+  let { error } = await supabase.from(CUST).update(patch).eq("id", id);
+  if (gradeMissing(error)) {
+    const { grade: _g, ...noGrade } = patch;
+    void _g;
+    ({ error } = await supabase.from(CUST).update(noGrade).eq("id", id));
+  }
   if (error) return { ok: false, error: error.message };
+  if ("grade" in cur && (cur.grade ?? null) !== c.grade) {
+    await supabase.from(LOGS).insert({
+      customer_id: id,
+      assignee: c.assignee,
+      log_date: kstToday(),
+      kind: "grade",
+      from_stage: cur.grade ?? null,
+      to_stage: c.grade,
+    });
+  }
   if (cur.stage !== c.stage) {
     await supabase.from(LOGS).insert({
       customer_id: id,
@@ -200,6 +219,32 @@ export async function changeStage(id: string, stage: string) {
     kind: "stage",
     from_stage: cur.stage,
     to_stage: stage,
+  });
+  refresh();
+}
+
+// 목록에서 고객등급 변경 → 일지 기록
+export async function changeGrade(id: string, grade: string) {
+  if (!(await isAuthed())) throw new Error("로그인이 필요합니다.");
+  if (grade && !isGrade(grade)) throw new Error("잘못된 고객등급입니다.");
+  const supabase = createServiceClient();
+  const { data: cur, error: e1 } = await supabase.from(CUST).select("*").eq("id", id).single();
+  if (e1) throw new Error(e1.message);
+  if (!("grade" in cur))
+    throw new Error("고객등급 컬럼이 없습니다. Supabase에서 고객등급 SQL을 먼저 실행해 주세요.");
+  if ((cur.grade ?? "") === grade) return;
+  const { error } = await supabase
+    .from(CUST)
+    .update({ grade: grade || null, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  await supabase.from(LOGS).insert({
+    customer_id: id,
+    assignee: cur.assignee,
+    log_date: kstToday(),
+    kind: "grade",
+    from_stage: cur.grade ?? null,
+    to_stage: grade || null,
   });
   refresh();
 }
@@ -261,6 +306,7 @@ export async function importAssigned(ref: string, assignee: string, branch: stri
     assignee,
     branch: branch || null,
     stage: "1차상담",
+    grade: null as string | null,
     memo: null as string | null,
     next_action_date: null,
     budget: null as string | null,
