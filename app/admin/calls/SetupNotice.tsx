@@ -14,7 +14,7 @@ export default function CallsSetupNotice({ message }: { message: string }) {
       table="call_leads"
       sql={CALL_LEADS_SQL}
       message={message}
-      after="대표번호 / 영업사원 핸드폰 고객 등록이 바로 가능합니다."
+      after="대표번호 / 영업사원 영업폰 고객 등록이 바로 가능합니다."
     />
   );
 }

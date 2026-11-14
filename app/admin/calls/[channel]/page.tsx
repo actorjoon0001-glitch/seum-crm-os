@@ -92,7 +92,7 @@ export default async function CallsPage({
     new Set((spRows ?? []).map((r) => String(r.salesperson ?? "").trim()).filter(Boolean))
   ).sort((a, b) => a.localeCompare(b, "ko"));
 
-  // 영업사원별 건수 (핸드폰 DB 화면에서 한눈에)
+  // 영업사원별 건수 (영업폰 DB 화면에서 한눈에)
   const perSp = new Map<string, number>();
   if (isMobile && !sp && !q && !status) {
     for (const r of rows) {

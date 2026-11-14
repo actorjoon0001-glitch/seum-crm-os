@@ -41,7 +41,7 @@ export default function CallForm({
     >
       <input type="hidden" name="channel" value={channel} />
       <div className="mb-2 text-sm font-bold text-gray-800">
-        {isMobile ? "📱 영업사원 핸드폰 전화 고객 등록" : "☎️ 대표번호 전화 고객 등록"}
+        {isMobile ? "📱 영업사원 영업폰 전화 고객 등록" : "☎️ 대표번호 전화 고객 등록"}
       </div>
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8">
         <label className="col-span-1">

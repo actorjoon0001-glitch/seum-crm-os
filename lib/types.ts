@@ -137,7 +137,7 @@ export interface VisitReservation {
   payload?: Record<string, unknown> | string | null;
 }
 
-// 전화 고객 DB (call_leads) — 대표번호 / 영업사원 핸드폰, 직원이 수기 등록
+// 전화 고객 DB (call_leads) — 대표번호 / 영업사원 영업폰, 직원이 수기 등록
 export type CallChannel = "main" | "mobile";
 
 export interface CallLead {
@@ -166,10 +166,10 @@ export const CALL_CHANNELS: Record<
     desc: "회사 대표번호로 걸려온 문의 고객 (수기 등록)",
   },
   mobile: {
-    label: "영업사원 핸드폰 전화 고객",
-    short: "영업사원 핸드폰",
+    label: "영업사원 영업폰 전화 고객",
+    short: "영업사원 영업폰",
     icon: "📱",
-    desc: "개인 영업사원 핸드폰으로 들어온 문의 고객 DB",
+    desc: "영업사원 영업폰으로 들어온 문의 고객 DB",
   },
 };
 

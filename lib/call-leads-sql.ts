@@ -1,8 +1,8 @@
-// 전화 고객(대표번호 / 영업사원 핸드폰) 테이블 생성 SQL.
+// 전화 고객(대표번호 / 영업사원 영업폰) 테이블 생성 SQL.
 // Supabase 대시보드 > SQL Editor 에 붙여넣고 Run 하면 됩니다. (supabase/call_leads.sql 과 동일)
 export const CALL_LEADS_SQL = `create table if not exists public.call_leads (
   id           uuid primary key default gen_random_uuid(),
-  channel      text not null check (channel in ('main', 'mobile')), -- main=대표번호, mobile=영업사원 핸드폰
+  channel      text not null check (channel in ('main', 'mobile')), -- main=대표번호, mobile=영업사원 영업폰
   called_at    timestamptz not null default now(),  -- 통화(문의) 일시
   name         text,                                -- 고객명
   phone        text,                                -- 고객 연락처

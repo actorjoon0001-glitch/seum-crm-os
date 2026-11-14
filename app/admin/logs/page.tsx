@@ -168,7 +168,7 @@ export default async function SalesDbPage({ searchParams }: { searchParams: Sear
           name: c.name || "(이름없음)",
           phone: c.phone ?? "",
           when: (c.called_at ?? "").slice(0, 10),
-          label: c.channel === "main" ? "☎️ 대표번호" : "📱 핸드폰",
+          label: c.channel === "main" ? "☎️ 대표번호" : "📱 영업폰",
         });
     }
   }
