@@ -13,7 +13,7 @@ const ITEMS: { key: NavKey; href: string; label: string }[] = [
   { key: "kpi", href: "/admin/kpi", label: "📈 KPI" },
 ];
 
-// 모든 화면 상단 공통 내비게이션. 세움OS 권한 admin · master 계정에만 '관리자' 메뉴 표시
+// 모든 화면 상단 공통 내비게이션. 세움OS 권한이 admin 인 계정에만 '관리자' 메뉴 표시
 export default async function AppNav({ active }: { active: NavKey }) {
   const role = await currentRole();
   const name = await currentUserName();

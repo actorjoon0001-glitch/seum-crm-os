@@ -47,7 +47,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Searc
       <div className="mt-5">
         <h1 className="text-2xl font-bold">🛡️ 관리자</h1>
         <p className="mt-0.5 text-sm text-gray-500">
-          세움OS 관리자(admin · master) 계정만 볼 수 있는 화면입니다. 로그인 기록, 일지 작성 현황, 데이터 백업을 관리합니다.
+          세움OS 권한이 admin 인 관리자 계정만 볼 수 있는 화면입니다. (master 제외) 로그인 기록, 일지 작성 현황, 데이터 백업을 관리합니다.
         </p>
       </div>
       <div className="mt-5 space-y-5">{body}</div>
@@ -402,7 +402,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Searc
           </div>
           <p className="mt-3 text-xs leading-relaxed text-gray-400">
             직원은 세움OS 계정(이메일 · 비밀번호)으로 로그인합니다. 퇴사자는 세움OS에서 승인 해제(차단)하면 고객관리OS도 즉시
-            접근할 수 없습니다. 관리자 메뉴는 세움OS 권한이 admin · master 인 계정에만 보입니다.
+            접근할 수 없습니다. 관리자 메뉴는 세움OS 권한이 admin 인 계정에만 보입니다. (master 제외)
           </p>
         </section>
       </div>
