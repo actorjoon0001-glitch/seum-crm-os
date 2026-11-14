@@ -16,10 +16,15 @@ export async function getSalespeople(
 ): Promise<Salesperson[]> {
   const out = new Map<string, Salesperson>();
 
-  const { data, error } = await supabase
-    .from("employees")
-    .select("name,team,showroom,position_name,status")
-    .limit(1000);
+  const [{ data, error }, { data: rooms }] = await Promise.all([
+    supabase.from("employees").select("name,team,showroom,position_name,status").limit(1000),
+    // 세움OS 전시장 관리(showrooms: code → name). 없으면 기본 한글 매핑 사용
+    supabase.from("showrooms").select("code,name").limit(200),
+  ]);
+  const roomName = new Map<string, string>();
+  for (const r of (rooms ?? []) as { code: string | null; name: string | null }[])
+    if (r.code && r.name?.trim()) roomName.set(r.code, r.name.trim());
+  const branchLabel = (code: string) => SHOWROOM_LABEL[code] ?? roomName.get(code) ?? showroomLabel(code);
   if (!error && data) {
     const staff = (data as {
       name: string | null;
@@ -33,7 +38,7 @@ export async function getSalespeople(
       const name = e.name!.trim();
       out.set(name, {
         name,
-        branch: e.showroom ? showroomLabel(e.showroom) : null,
+        branch: e.showroom ? branchLabel(e.showroom) : null,
         position: e.position_name,
         fromStaff: true,
       });
@@ -51,7 +56,9 @@ export const NO_BRANCH = "전시장 미지정";
 
 // 전시장별 묶음 (본사 → 1·2·3·4전시장 → 강화 → 기타 가나다순 → 미지정)
 export function groupByBranch(people: Salesperson[]): { branch: string; people: Salesperson[] }[] {
-  const order = ["headquarters", "showroom1", "showroom2", "showroom3", "showroom4", "ganghwa"].map((k) => SHOWROOM_LABEL[k]);
+  const order = ["headquarters", "showroom1", "showroom2", "showroom3", "showroom4", "ganghwa", "gwangju", "andong"].map(
+    (k) => SHOWROOM_LABEL[k]
+  );
   const map = new Map<string, Salesperson[]>();
   for (const p of people) {
     const b = p.branch?.trim() || NO_BRANCH;
