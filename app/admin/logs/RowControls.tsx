@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { addNote, changeStage, deleteCustomer, importAssigned, setNextDate } from "./actions";
-import { STAGES, stageColor } from "@/lib/sales-db";
+import { addNote, changeGrade, changeStage, deleteCustomer, importAssigned, setNextDate } from "./actions";
+import { GRADES, STAGES, gradeColor, stageColor } from "@/lib/sales-db";
 
 export function StageSelect({ id, stage }: { id: string; stage: string }) {
   const [value, setValue] = useState(stage);
@@ -22,6 +22,44 @@ export function StageSelect({ id, stage }: { id: string; stage: string }) {
         <option key={s.value}>{s.value}</option>
       ))}
     </select>
+  );
+}
+
+export function GradeSelect({ id, grade }: { id: string; grade: string | null | undefined }) {
+  const [value, setValue] = useState(grade ?? "");
+  const [pending, start] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
+  return (
+    <div>
+      <select
+        value={value}
+        disabled={pending}
+        onChange={(e) => {
+          const next = e.target.value;
+          const prev = value;
+          setValue(next);
+          setErr(null);
+          start(async () => {
+            try {
+              await changeGrade(id, next);
+            } catch (er) {
+              setValue(prev);
+              setErr(er instanceof Error ? er.message : "저장 실패");
+            }
+          });
+        }}
+        title={GRADES.find((g) => g.value === value)?.desc ?? "고객등급 선택"}
+        className={`w-full cursor-pointer rounded-md border-0 px-1.5 py-1 text-center text-xs font-black outline-none ${gradeColor(value)} ${pending ? "opacity-50" : ""}`}
+      >
+        <option value="">-</option>
+        {GRADES.map((g) => (
+          <option key={g.value} value={g.value}>
+            {g.value}
+          </option>
+        ))}
+      </select>
+      {err && <div className="mt-0.5 text-[10px] leading-tight text-red-600">{err}</div>}
+    </div>
   );
 }
 

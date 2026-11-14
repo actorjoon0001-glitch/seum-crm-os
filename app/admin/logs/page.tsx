@@ -12,20 +12,21 @@ import { requireAuth } from "@/lib/require-auth";
 import { SP_COOKIE } from "@/lib/auth";
 import { isMissingTable } from "@/lib/db-errors";
 import { SALES_DB_SQL } from "@/lib/sales-db-sql";
-import { STAGES, isOpenStage, stageColor, type SalesCustomer, type SalesCustomerLog } from "@/lib/sales-db";
+import { GRADES, STAGES, isOpenStage, stageColor, type SalesCustomer, type SalesCustomerLog } from "@/lib/sales-db";
 import { getSalespeople, groupByBranch, NO_BRANCH } from "@/lib/staff";
 import { addDays, dateLabel, isDateStr, kstToday } from "@/lib/kst";
 import AppNav from "@/app/AppNav";
 import SetupSqlNotice from "@/app/SetupSqlNotice";
 import CustomerForm from "./CustomerForm";
-import { StageSelect, NoteInput, NextDateInput, DeleteButton, ImportButton } from "./RowControls";
+import { StageSelect, GradeSelect, NoteInput, NextDateInput, DeleteButton, ImportButton } from "./RowControls";
+import GradeLegend from "./GradeLegend";
 import LogText from "./LogText";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
 
-type Search = { sp?: string; branch?: string; date?: string; q?: string; stage?: string };
+type Search = { sp?: string; branch?: string; date?: string; q?: string; stage?: string; grade?: string };
 type LogWithCustomer = SalesCustomerLog & {
   sales_customers: { customer_name: string | null; db_no: string | null } | null;
 };
@@ -36,6 +37,7 @@ export default async function SalesDbPage({ searchParams }: { searchParams: Sear
   const date = isDateStr(searchParams.date) ? searchParams.date : today;
   const q = (searchParams.q ?? "").trim();
   const stageFilter = (searchParams.stage ?? "").trim();
+  const gradeFilter = (searchParams.grade ?? "").trim();
 
   // 담당자: 주소 → 없으면 마지막으로 기록한 이름(쿠키)
   let sp = "";
@@ -109,6 +111,7 @@ export default async function SalesDbPage({ searchParams }: { searchParams: Sear
   if (sp) custQ = custQ.eq("assignee", sp);
   else if (branch) custQ = custQ.in("assignee", branchNames.length ? branchNames : ["__none__"]);
   if (stageFilter) custQ = custQ.eq("stage", stageFilter);
+  if (gradeFilter) custQ = custQ.eq("grade", gradeFilter);
   if (q) {
     const s = q.replace(/[,()]/g, " ");
     custQ = custQ.or(
@@ -148,6 +151,9 @@ export default async function SalesDbPage({ searchParams }: { searchParams: Sear
   ]);
 
   const customers = (custRes.data ?? []) as SalesCustomer[];
+  // 고객등급 컬럼이 아직 없으면 안내
+  const { error: gradeColErr } = await supabase.from(CUST).select("grade").limit(1);
+  const gradeColMissing = !!gradeColErr && /grade/.test(gradeColErr.message);
   const dayLogs = (dayRes.data ?? []) as LogWithCustomer[];
 
   // 배정됐지만 아직 내 DB에 없는 고객
@@ -316,6 +322,15 @@ export default async function SalesDbPage({ searchParams }: { searchParams: Sear
         </section>
       )}
 
+      {gradeColMissing && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <p className="font-semibold">고객등급(A~E)을 쓰려면 Supabase SQL Editor에서 아래 한 줄을 한 번 실행해 주세요.</p>
+          <pre className="mt-2 select-all rounded-lg bg-white p-2 text-xs ring-1 ring-amber-200">
+            alter table public.sales_customers add column if not exists grade text;
+          </pre>
+        </div>
+      )}
+
       {/* 고객 DB 시트 */}
       <section>
         <form action="/admin/logs" className="mb-2 flex flex-wrap items-center gap-2">
@@ -337,8 +352,20 @@ export default async function SalesDbPage({ searchParams }: { searchParams: Sear
               <option key={s.value}>{s.value}</option>
             ))}
           </select>
+          <select
+            name="grade"
+            defaultValue={gradeFilter}
+            className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-seum"
+          >
+            <option value="">전체 고객등급</option>
+            {GRADES.map((g) => (
+              <option key={g.value} value={g.value}>
+                {g.value}등급
+              </option>
+            ))}
+          </select>
           <button className="rounded-lg bg-gray-900 px-3 py-1.5 text-sm font-semibold text-white">검색</button>
-          {(q || stageFilter) && (
+          {(q || stageFilter || gradeFilter) && (
             <Link href={link({})} className="text-sm text-gray-400 hover:text-gray-600">
               초기화
             </Link>
@@ -348,7 +375,7 @@ export default async function SalesDbPage({ searchParams }: { searchParams: Sear
 
         {customers.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-400">
-            {q || stageFilter ? "조건에 맞는 고객이 없습니다." : "등록된 고객이 없습니다. 위 양식으로 1명씩 등록하세요."}
+            {q || stageFilter || gradeFilter ? "조건에 맞는 고객이 없습니다." : "등록된 고객이 없습니다. 위 양식으로 1명씩 등록하세요."}
           </div>
         ) : (
           <div className="overflow-x-auto rounded-xl border border-gray-300 bg-white shadow-sm">
@@ -357,11 +384,11 @@ export default async function SalesDbPage({ searchParams }: { searchParams: Sear
                 <tr className="bg-sky-100 text-center font-bold">
                   <th colSpan={5} className="border border-gray-300 py-1">기본정보</th>
                   <th colSpan={4} className="border border-gray-300 py-1">유입정보</th>
-                  <th colSpan={3} className="border border-gray-300 py-1">영업진행</th>
+                  <th colSpan={4} className="border border-gray-300 py-1">영업진행</th>
                   <th colSpan={3} className="border border-gray-300 bg-amber-50 py-1">일지</th>
                 </tr>
                 <tr className="bg-sky-50 text-center font-semibold">
-                  {["DB번호", "접수일", "고객명", "연락처", "지역", "*유입구분", "*유입경로", "관심제품", "예상예산", "담당지점", "배정담당자", "*진행단계"].map(
+                  {["DB번호", "접수일", "고객명", "연락처", "지역", "*유입구분", "*유입경로", "관심제품", "예상예산", "담당지점", "배정담당자", "*진행단계", "고객등급"].map(
                     (h) => (
                       <th key={h} className="whitespace-nowrap border border-gray-300 px-2 py-1">
                         {h}
@@ -402,6 +429,9 @@ export default async function SalesDbPage({ searchParams }: { searchParams: Sear
                       <td className="w-[104px] border border-gray-200 px-1.5 py-1">
                         <StageSelect id={c.id} stage={c.stage} />
                       </td>
+                      <td className="w-[60px] border border-gray-200 px-1.5 py-1">
+                        <GradeSelect id={c.id} grade={c.grade} />
+                      </td>
                       <td className="min-w-[240px] border border-gray-200 bg-amber-50/30 px-1.5 py-1">
                         {c.memo && (
                           <div className="mb-1 line-clamp-2 break-words text-gray-600" title={c.memo}>
@@ -424,7 +454,8 @@ export default async function SalesDbPage({ searchParams }: { searchParams: Sear
             </table>
           </div>
         )}
-        <p className="mt-2 text-xs text-gray-400">
+        <GradeLegend className="mt-2" />
+        <p className="mt-1 text-xs text-gray-400">
           ▶ *진행단계: 1차상담 → 방문예정 → 방문완료 → 견적발송 → 계약협의 → 계약보류 → 계약완료 · 단계를 바꾸거나 오늘 기록을
           입력하면 그날 일지에 자동으로 남습니다.
         </p>

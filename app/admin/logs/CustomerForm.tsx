@@ -2,7 +2,8 @@
 
 import { useFormState, useFormStatus } from "react-dom";
 import { createCustomer, updateCustomer, type FormResult } from "./actions";
-import { INFLOW_ROUTES, INFLOW_TYPES, STAGES, type SalesCustomer } from "@/lib/sales-db";
+import { GRADES, INFLOW_ROUTES, INFLOW_TYPES, STAGES, type SalesCustomer } from "@/lib/sales-db";
+import GradeLegend from "./GradeLegend";
 import type { Salesperson } from "@/lib/staff";
 
 const input =
@@ -56,7 +57,7 @@ export default function CustomerForm({
   return (
     <form key={formKey} action={action} className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
       {c && <input type="hidden" name="id" value={c.id} />}
-      <div className="grid gap-3 lg:grid-cols-[5fr_4fr_4fr]">
+      <div className="grid gap-3 lg:grid-cols-[5fr_4fr_5fr]">
         <Group title="기본정보">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <label>
@@ -115,7 +116,7 @@ export default function CustomerForm({
         </Group>
 
         <Group title="영업진행">
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             <label>
               <span className={lbl}>담당지점</span>
               <input name="branch" defaultValue={c?.branch ?? branch} placeholder="마곡" className={input} />
@@ -136,6 +137,17 @@ export default function CustomerForm({
               <select name="stage" defaultValue={c?.stage ?? "1차상담"} className={input}>
                 {STAGES.map((s) => (
                   <option key={s.value}>{s.value}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span className={lbl}>고객등급</span>
+              <select name="grade" defaultValue={c?.grade ?? ""} className={input}>
+                <option value="">선택</option>
+                {GRADES.map((g) => (
+                  <option key={g.value} value={g.value}>
+                    {g.value} · {g.desc}
+                  </option>
                 ))}
               </select>
             </label>
@@ -160,6 +172,7 @@ export default function CustomerForm({
           <Submit label={mode === "create" ? "+ 고객 등록" : "저장"} />
         </div>
       </div>
+      <GradeLegend className="mt-2 rounded-md bg-gray-50 px-2 py-1.5" />
       {state?.error && <p className="mt-2 text-sm text-red-600">{state.error}</p>}
       {state?.ok && <p className="mt-2 text-sm text-green-600">✓ {state.message}</p>}
     </form>

@@ -16,6 +16,7 @@ export interface SalesCustomer {
   branch: string | null;
   assignee: string;
   stage: string;
+  grade?: string | null; // 고객등급 A~E
   memo: string | null;
   last_contact_date: string | null;
   next_action_date: string | null;
@@ -29,7 +30,7 @@ export interface SalesCustomerLog {
   customer_id: string;
   assignee: string;
   log_date: string;
-  kind: "created" | "stage" | "note";
+  kind: "created" | "stage" | "note" | "grade";
   from_stage: string | null;
   to_stage: string | null;
   note: string | null;
@@ -64,6 +65,18 @@ export const STAGES: { value: string; color: string }[] = [
   { value: "계약보류", color: "bg-gray-200 text-gray-600" },
   { value: "계약완료", color: "bg-emerald-600 text-white" },
 ];
+
+// 고객등급 (A~E) — 토지 보유 · 시공 시기 기준
+export const GRADES: { value: string; desc: string; color: string }[] = [
+  { value: "A", desc: "토지 보유 · 3개월 이내 시공 희망", color: "bg-red-600 text-white" },
+  { value: "B", desc: "토지 보유 · 시공 의향 있음 (3개월 이후)", color: "bg-orange-500 text-white" },
+  { value: "C", desc: "토지 보유 · 천천히 진행", color: "bg-amber-300 text-amber-950" },
+  { value: "D", desc: "토지 없음", color: "bg-sky-200 text-sky-900" },
+  { value: "E", desc: "단순 문의", color: "bg-gray-200 text-gray-600" },
+];
+export const gradeColor = (v: string | null | undefined) =>
+  GRADES.find((g) => g.value === v)?.color ?? "bg-white text-gray-400 ring-1 ring-inset ring-gray-200";
+export const isGrade = (v: string) => GRADES.some((g) => g.value === v);
 
 export const stageColor = (v: string | null | undefined) =>
   STAGES.find((s) => s.value === v)?.color ?? "bg-gray-100 text-gray-500";

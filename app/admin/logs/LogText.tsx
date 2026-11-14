@@ -1,4 +1,4 @@
-import { stageColor, type SalesCustomerLog } from "@/lib/sales-db";
+import { gradeColor, stageColor, type SalesCustomerLog } from "@/lib/sales-db";
 
 // 일지 1건 표시 (신규 등록 / 단계 변경 / 상담 메모)
 export default function LogText({ log }: { log: SalesCustomerLog }) {
@@ -15,6 +15,13 @@ export default function LogText({ log }: { log: SalesCustomerLog }) {
       <span className="text-gray-600">
         단계 변경 <span className="text-gray-400">{log.from_stage}</span> →{" "}
         <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${stageColor(log.to_stage)}`}>{log.to_stage}</span>
+      </span>
+    );
+  if (log.kind === "grade")
+    return (
+      <span className="text-gray-600">
+        고객등급 <span className="text-gray-400">{log.from_stage ?? "-"}</span> →{" "}
+        <span className={`rounded px-1.5 py-0.5 text-[11px] font-black ${gradeColor(log.to_stage)}`}>{log.to_stage ?? "-"}</span>
       </span>
     );
   return <span className="whitespace-pre-wrap text-gray-600">💬 {log.note}</span>;
