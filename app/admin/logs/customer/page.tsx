@@ -1,101 +1,85 @@
 import Link from "next/link";
-import { createServiceClient, hasSupabaseEnv, LOGS_TABLE } from "@/lib/supabase/server";
+import { notFound } from "next/navigation";
+import {
+  createServiceClient,
+  hasSupabaseEnv,
+  SALES_CUSTOMERS_TABLE as CUST,
+  SALES_CUSTOMER_LOGS_TABLE as LOGS,
+} from "@/lib/supabase/server";
 import { requireAuth } from "@/lib/require-auth";
-import type { SalesLog } from "@/lib/types";
-import { stageMeta, sourceMeta } from "@/lib/types";
-import { kstToday } from "@/lib/kst";
+import { stageColor, type SalesCustomer, type SalesCustomerLog } from "@/lib/sales-db";
+import { getSalespeople } from "@/lib/staff";
+import { dateLabel, kstToday } from "@/lib/kst";
 import AppNav from "@/app/AppNav";
-import LogTable from "../LogTable";
+import CustomerForm from "../CustomerForm";
+import LogText from "../LogText";
+import { NoteInput } from "../RowControls";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
 
-// 한 고객의 영업일지 전체 이력 (연락처 기준, 없으면 이름 기준)
-export default async function CustomerHistory({
-  searchParams,
-}: {
-  searchParams: { phone?: string; name?: string };
-}) {
+// 고객 1명: 정보 수정 + 일지(상담 이력) 전체
+export default async function CustomerDetail({ searchParams }: { searchParams: { id?: string } }) {
   await requireAuth("/admin/logs");
-  const phone = (searchParams.phone ?? "").replace(/\D/g, "");
-  const name = (searchParams.name ?? "").trim();
+  const id = searchParams.id ?? "";
+  if (!hasSupabaseEnv() || !/^[0-9a-f-]{36}$/i.test(id)) notFound();
 
-  let rows: SalesLog[] = [];
-  let error: string | null = null;
-  if (hasSupabaseEnv() && (phone || name)) {
-    const supabase = createServiceClient();
-    let q = supabase
-      .from(LOGS_TABLE)
-      .select("*")
-      .order("log_date", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(500);
-    q = phone ? q.eq("phone_digits", phone) : q.eq("customer_name", name);
-    const res = await q;
-    error = res.error?.message ?? null;
-    rows = (res.data ?? []) as SalesLog[];
-  }
-
-  const latest = rows[0];
-  const title = latest?.customer_name || name || "(이름없음)";
-  const sps = Array.from(new Set(rows.map((r) => r.salesperson)));
+  const supabase = createServiceClient();
+  const [cRes, lRes] = await Promise.all([
+    supabase.from(CUST).select("*").eq("id", id).single(),
+    supabase.from(LOGS).select("*").eq("customer_id", id).order("created_at", { ascending: false }).limit(500),
+  ]);
+  if (!cRes.data) notFound();
+  const c = cRes.data as SalesCustomer;
+  const logs = (lRes.data ?? []) as SalesCustomerLog[];
+  const salespeople = await getSalespeople(supabase, [c.assignee]);
 
   return (
     <main className="mx-auto max-w-none px-4 py-6">
       <AppNav active="logs" />
-      <Link href="/admin/logs" className="mt-4 inline-block text-sm text-gray-400 hover:text-gray-600">
-        ← 영업일지
+      <Link
+        href={`/admin/logs?sp=${encodeURIComponent(c.assignee)}`}
+        className="mt-4 inline-block text-sm text-gray-400 hover:text-gray-600"
+      >
+        ← {c.assignee} 님 고객 DB
       </Link>
       <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">{title}</h1>
+          <div className="font-mono text-sm text-seum">{c.db_no}</div>
+          <h1 className="text-2xl font-bold">{c.customer_name || "(이름없음)"}</h1>
           <p className="text-sm text-gray-500">
-            {latest?.phone && (
-              <a href={`tel:${latest.phone}`} className="text-seum">
-                {latest.phone}
+            {c.phone && (
+              <a href={`tel:${c.phone}`} className="text-seum">
+                {c.phone}
               </a>
             )}
-            {latest?.source && ` · ${sourceMeta(latest.source).label}`}
-            {sps.length > 0 && ` · 담당 ${sps.join(", ")}`}
+            {` · 접수 ${dateLabel(c.received_date)} · ${c.inflow_type ?? "-"} / ${c.inflow_route ?? "-"} · 담당 ${c.assignee}`}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {latest && (
-            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${stageMeta(latest.stage).color}`}>
-              현재 단계: {stageMeta(latest.stage).label}
-            </span>
-          )}
-          {latest && (
-            <Link
-              href={`/admin/logs?${new URLSearchParams({
-                sp: latest.salesperson,
-                date: kstToday(),
-                name: latest.customer_name ?? "",
-                phone: latest.phone ?? "",
-              })}`}
-              className="rounded-lg bg-seum px-3 py-1.5 text-xs font-semibold text-white hover:bg-seum-dark"
-            >
-              + 오늘 일지 기록
-            </Link>
-          )}
-        </div>
+        <span className={`rounded-full px-3 py-1 text-sm font-semibold ${stageColor(c.stage)}`}>{c.stage}</span>
       </div>
 
       <div className="mt-4">
-        {error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">불러오기 실패: {error}</div>
-        ) : rows.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-400">
-            기록이 없습니다.
-          </div>
-        ) : (
-          <>
-            <p className="mb-2 text-sm font-bold text-gray-700">상담 이력 {rows.length}건</p>
-            <LogTable rows={rows} showDate showSalesperson={sps.length > 1} />
-          </>
-        )}
+        <CustomerForm mode="edit" salespeople={salespeople} assignee={c.assignee} branch={c.branch ?? ""} today={kstToday()} customer={c} />
       </div>
+
+      <section className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <h2 className="text-sm font-bold">📝 상담 일지 {logs.length}건</h2>
+        <div className="mt-2 max-w-xl">
+          <NoteInput id={c.id} />
+        </div>
+        <ul className="mt-3 space-y-0 border-l-2 border-gray-200 pl-4 text-sm">
+          {logs.map((l) => (
+            <li key={l.id} className="relative py-1.5">
+              <span className="absolute -left-[21px] top-3 h-2 w-2 rounded-full bg-seum" />
+              <span className="mr-2 text-xs font-semibold text-gray-500">{dateLabel(l.log_date)}</span>
+              <span className="mr-2 text-xs text-gray-400">{l.assignee}</span>
+              <LogText log={l} />
+            </li>
+          ))}
+        </ul>
+      </section>
     </main>
   );
 }

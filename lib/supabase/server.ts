@@ -19,9 +19,11 @@ export const VISITS_TABLE =
 // 전화 고객(대표번호 / 영업사원 핸드폰) 수기 등록 테이블
 export const CALLS_TABLE =
   process.env.SUPABASE_CALLS_TABLE || "call_leads";
-// 영업일지 (영업사원 일일 고객 상담 기록, KPI 원천)
-export const LOGS_TABLE =
-  process.env.SUPABASE_LOGS_TABLE || "sales_logs";
+// 영업 고객 DB (엑셀 '고객 DB 관리' 양식) + 일지 기록
+export const SALES_CUSTOMERS_TABLE =
+  process.env.SUPABASE_SALES_CUSTOMERS_TABLE || "sales_customers";
+export const SALES_CUSTOMER_LOGS_TABLE =
+  process.env.SUPABASE_SALES_CUSTOMER_LOGS_TABLE || "sales_customer_logs";
 // 전자계약 테이블
 export const ECONTRACTS_TABLE =
   process.env.SUPABASE_ECONTRACTS_TABLE || "econtracts";
