@@ -18,6 +18,7 @@ import { kstMonthStartISO, kstShort, kstToday, kstTodayStartISO } from "@/lib/ks
 import { isMissingTable as isMissingDbTable } from "@/lib/db-errors";
 import { vf, statusMeta } from "@/app/admin/visits/fields";
 import AppNav from "@/app/AppNav";
+import VisitCalendar from "@/app/admin/visits/VisitCalendar";
 import { isMissingTable } from "@/app/admin/calls/SetupNotice";
 
 export const dynamic = "force-dynamic";
@@ -48,8 +49,13 @@ type Column = {
   needsSetup?: boolean;
 };
 
-export default async function Home() {
+export default async function Home({ searchParams }: { searchParams: { month?: string } }) {
   await requireAuth("/");
+  const today = kstToday();
+  const calMonth = /^\d{4}-\d{2}$/.test(searchParams.month || "")
+    ? (searchParams.month as string)
+    : today.slice(0, 7);
+  let calRows: VisitReservation[] = [];
 
   let columns: Column[] = [];
   let journal: { writers: number; total: number; contracts: number; missing: boolean } | null = null;
@@ -186,9 +192,20 @@ export default async function Home() {
       };
     };
 
-    [columns, journal] = await Promise.all([
+    // ---------- 방문예약 캘린더 (해당 월 방문일 기준) ----------
+    const calendarRows = async () => {
+      const { data } = await supabase
+        .from(VISITS_TABLE)
+        .select("*")
+        .like("visit_date", `${calMonth}%`)
+        .limit(1000);
+      return (data ?? []) as VisitReservation[];
+    };
+
+    [columns, journal, calRows] = await Promise.all([
       Promise.all([visitColumn(), callColumn("main"), callColumn("mobile")]),
       journalStats(),
+      calendarRows(),
     ]);
   }
 
@@ -239,6 +256,23 @@ export default async function Home() {
               </span>
             </div>
           )}
+
+          {/* 방문예약 캘린더 */}
+          <section
+            id="visit-calendar"
+            className="mt-5 scroll-mt-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-lg font-bold">🗓️ 방문예약 캘린더</h2>
+              <Link
+                href={`/admin/visits?view=calendar&month=${calMonth}`}
+                className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-seum"
+              >
+                크게 보기 · 전시장 필터 →
+              </Link>
+            </div>
+            <VisitCalendar rows={calRows} month={calMonth} todayStr={today} params={{}} basePath="/" compact />
+          </section>
 
           {/* 3개 카테고리 한눈에 */}
           <div className="mt-5 grid gap-4 lg:grid-cols-3">
