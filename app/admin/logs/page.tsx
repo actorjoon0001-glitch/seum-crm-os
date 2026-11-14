@@ -13,7 +13,7 @@ import { SP_COOKIE } from "@/lib/auth";
 import { isMissingTable } from "@/lib/db-errors";
 import { SALES_DB_SQL } from "@/lib/sales-db-sql";
 import { STAGES, isOpenStage, stageColor, type SalesCustomer, type SalesCustomerLog } from "@/lib/sales-db";
-import { getSalespeople } from "@/lib/staff";
+import { getSalespeople, groupByBranch, NO_BRANCH } from "@/lib/staff";
 import { addDays, dateLabel, isDateStr, kstToday } from "@/lib/kst";
 import AppNav from "@/app/AppNav";
 import SetupSqlNotice from "@/app/SetupSqlNotice";
@@ -25,7 +25,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
 
-type Search = { sp?: string; date?: string; q?: string; stage?: string };
+type Search = { sp?: string; branch?: string; date?: string; q?: string; stage?: string };
 type LogWithCustomer = SalesCustomerLog & {
   sales_customers: { customer_name: string | null; db_no: string | null } | null;
 };
@@ -94,6 +94,10 @@ export default async function SalesDbPage({ searchParams }: { searchParams: Sear
   const salespeople = await getSalespeople(supabase, Array.from(countBy.keys()));
   const me = salespeople.find((s) => s.name === sp);
   const notWritten = salespeople.filter((s) => s.fromStaff && !wroteToday.has(s.name));
+  const groups = groupByBranch(salespeople);
+  // 전시장 보기: 영업사원 미선택 + branch 지정 시 그 전시장 소속 전체
+  const branch = !sp ? (searchParams.branch ?? "").trim() : "";
+  const branchNames = branch ? (groups.find((g) => g.branch === branch)?.people ?? []).map((p) => p.name) : [];
 
   // 고객 DB 시트
   let custQ = supabase
@@ -103,6 +107,7 @@ export default async function SalesDbPage({ searchParams }: { searchParams: Sear
     .order("db_no", { ascending: false })
     .limit(2000);
   if (sp) custQ = custQ.eq("assignee", sp);
+  else if (branch) custQ = custQ.in("assignee", branchNames.length ? branchNames : ["__none__"]);
   if (stageFilter) custQ = custQ.eq("stage", stageFilter);
   if (q) {
     const s = q.replace(/[,()]/g, " ");
@@ -119,6 +124,7 @@ export default async function SalesDbPage({ searchParams }: { searchParams: Sear
     .order("created_at", { ascending: false })
     .limit(1000);
   if (sp) dayQ = dayQ.eq("assignee", sp);
+  else if (branch) dayQ = dayQ.in("assignee", branchNames.length ? branchNames : ["__none__"]);
 
   const [custRes, dayRes, visitRes, callRes] = await Promise.all([
     custQ,
@@ -179,7 +185,8 @@ export default async function SalesDbPage({ searchParams }: { searchParams: Sear
         .sort((a, b) => (a.next_action_date! < b.next_action_date! ? -1 : 1))
     : [];
 
-  const link = (p: Record<string, string>) => `/admin/logs?${new URLSearchParams({ sp, ...p })}`;
+  const link = (p: Record<string, string>) =>
+    `/admin/logs?${new URLSearchParams({ sp, ...(branch ? { branch } : {}), ...p })}`;
   const tabCls = (on: boolean) =>
     `inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
       on ? "bg-gray-900 text-white" : "border border-gray-200 bg-white text-gray-600 hover:border-seum hover:text-seum"
@@ -187,36 +194,61 @@ export default async function SalesDbPage({ searchParams }: { searchParams: Sear
 
   return shell(
     <>
-      {/* 영업사원 탭 — 세움OS 영업팀 명단 */}
+      {/* 영업사원 탭 — 세움OS 영업팀 명단, 전시장별 */}
       <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Link href="/admin/logs?sp=" className={tabCls(!sp)}>
+        <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-2">
+          <Link href="/admin/logs?sp=" className={tabCls(!sp && !branch)}>
             👥 전체 <span className="text-xs opacity-70">{allRes.data?.length ?? 0}</span>
           </Link>
-          {salespeople.map((s) => (
-            <Link key={s.name} href={`/admin/logs?sp=${encodeURIComponent(s.name)}`} className={tabCls(sp === s.name)}>
-              <span
-                className={`h-2 w-2 rounded-full ${wroteToday.has(s.name) ? "bg-emerald-500" : "bg-gray-300"}`}
-                title={wroteToday.has(s.name) ? "오늘 일지 작성" : "오늘 일지 미작성"}
-              />
-              {s.name}
-              <span className="text-xs opacity-70">{countBy.get(s.name) ?? 0}</span>
-            </Link>
-          ))}
+          <span className="text-xs text-gray-500">
+            <span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-500" />오늘 일지 작성 {wroteToday.size}명
+            {notWritten.length > 0 && <span className="text-orange-600"> · 미작성 {notWritten.length}명</span>}
+            {salespeople.length === 0 && " · 세움OS 직원 명단(영업팀)을 불러오지 못했습니다."}
+          </span>
         </div>
-        <p className="mt-2 text-xs text-gray-500">
-          <span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-500" />오늘 일지 작성 {wroteToday.size}명
-          {notWritten.length > 0 && (
-            <>
-              {" · "}
-              <span className="text-orange-600">
-                미작성 {notWritten.length}명: {notWritten.map((s) => s.name).join(", ")}
-              </span>
-            </>
-          )}
-          {salespeople.length === 0 && " · 세움OS 직원 명단(영업팀)을 불러오지 못했습니다."}
-        </p>
+        <div className="divide-y divide-gray-100">
+          {groups.map((g) => {
+            const dbCount = g.people.reduce((a, p) => a + (countBy.get(p.name) ?? 0), 0);
+            const missing = g.people.filter((p) => p.fromStaff && !wroteToday.has(p.name));
+            const onBranch = !sp && branch === g.branch;
+            return (
+              <div key={g.branch} className="flex flex-wrap items-start gap-2 py-2">
+                <Link
+                  href={`/admin/logs?${new URLSearchParams({ sp: "", branch: g.branch })}`}
+                  className={`w-36 shrink-0 rounded-lg px-2.5 py-1.5 text-sm font-bold leading-tight transition ${
+                    onBranch ? "bg-seum text-white" : g.branch === NO_BRANCH ? "bg-gray-50 text-gray-400 hover:text-seum" : "bg-seum-light text-seum-dark hover:bg-seum hover:text-white"
+                  }`}
+                  title={`${g.branch} 전체 고객 보기`}
+                >
+                  <span className="block truncate">🏢 {g.branch}</span>
+                  <span className="block text-[11px] font-medium opacity-70">
+                    영업사원 {g.people.length}명 · 고객 {dbCount}
+                  </span>
+                </Link>
+                <div className="flex flex-1 flex-wrap items-center gap-1.5">
+                  {g.people.map((s) => (
+                    <Link key={s.name} href={`/admin/logs?sp=${encodeURIComponent(s.name)}`} className={tabCls(sp === s.name)}>
+                      <span
+                        className={`h-2 w-2 rounded-full ${wroteToday.has(s.name) ? "bg-emerald-500" : "bg-gray-300"}`}
+                        title={wroteToday.has(s.name) ? "오늘 일지 작성" : "오늘 일지 미작성"}
+                      />
+                      {s.name}
+                      <span className="text-xs opacity-70">{countBy.get(s.name) ?? 0}</span>
+                    </Link>
+                  ))}
+                  {missing.length > 0 && (
+                    <span className="text-xs text-orange-600">미작성 {missing.length}명</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
+
+      {!sp && branch && (
+        <h2 className="text-lg font-bold">🏢 {branch} 고객 DB · 일지</h2>
+      )}
 
       {sp && (
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -237,9 +269,9 @@ export default async function SalesDbPage({ searchParams }: { searchParams: Sear
       <CustomerForm
         key={sp}
         mode="create"
-        salespeople={salespeople}
+        salespeople={branch ? salespeople.filter((p) => branchNames.includes(p.name)) : salespeople}
         assignee={sp}
-        branch={me?.branch ?? ""}
+        branch={me?.branch ?? (branch && branch !== NO_BRANCH ? branch : "")}
         today={today}
       />
 
@@ -288,6 +320,7 @@ export default async function SalesDbPage({ searchParams }: { searchParams: Sear
       <section>
         <form action="/admin/logs" className="mb-2 flex flex-wrap items-center gap-2">
           <input type="hidden" name="sp" value={sp} />
+          {branch && <input type="hidden" name="branch" value={branch} />}
           <input
             name="q"
             defaultValue={q}
@@ -400,7 +433,7 @@ export default async function SalesDbPage({ searchParams }: { searchParams: Sear
       {/* 날짜별 일지 */}
       <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-sm font-bold">📝 {sp ? `${sp} 님` : "전체"} 일지</h3>
+          <h3 className="text-sm font-bold">📝 {sp ? `${sp} 님` : branch || "전체"} 일지</h3>
           <div className="flex items-center gap-1 rounded-lg border border-gray-200 p-0.5 text-sm">
             <Link href={link({ date: addDays(date, -1) })} className="rounded px-2 text-gray-500 hover:bg-gray-100">◀</Link>
             <span className="px-1 font-semibold">{dateLabel(date)}</span>
