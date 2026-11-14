@@ -68,7 +68,7 @@ export const STAGES: { value: string; color: string }[] = [
 
 // 고객등급 (A~E) — 토지 보유 · 시공 시기 기준
 export const GRADES: { value: string; desc: string; color: string }[] = [
-  { value: "A", desc: "토지 보유 · 3개월 이내 시공 희망", color: "bg-red-600 text-white" },
+  { value: "A", desc: "토지 보유 · 3개월 이내 계약 희망", color: "bg-red-600 text-white" },
   { value: "B", desc: "토지 보유 · 시공 의향 있음 (3개월 이후)", color: "bg-orange-500 text-white" },
   { value: "C", desc: "토지 보유 · 천천히 진행", color: "bg-amber-300 text-amber-950" },
   { value: "D", desc: "토지 없음", color: "bg-sky-200 text-sky-900" },
