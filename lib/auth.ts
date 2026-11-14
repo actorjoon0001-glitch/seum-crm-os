@@ -68,11 +68,12 @@ export async function verifySession(token: string | undefined | null): Promise<S
   }
 }
 
-// 세움OS 권한 → 고객관리OS 관리자 여부 (admin / master / superadmin)
+// 세움OS 권한 → 고객관리OS 관리자 여부: role 또는 permission 이 'admin' 인 계정만
+// (master 등 다른 상위 권한은 관리자 페이지를 볼 수 없음)
 export function isOwnerEmployee(e: { role?: string | null; permission?: string | null; email?: string | null }): boolean {
   const r = (e.role ?? "").toLowerCase();
   const p = (e.permission ?? "").toLowerCase();
-  if (["admin", "master", "superadmin"].includes(r) || ["admin", "master", "superadmin"].includes(p)) return true;
+  if (r === "admin" || p === "admin") return true;
   // 추가 관리자: OWNER_EMAILS 환경변수 (쉼표로 구분)
   const extra = (process.env.OWNER_EMAILS ?? "")
     .split(",")
