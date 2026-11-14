@@ -18,7 +18,9 @@ export function defaultVisitMonth(rows: VisitReservation[], today: Date): string
   return (future || dates[dates.length - 1]).slice(0, 7);
 }
 
-function monthUrl(ym: string, params: Record<string, string>) {
+function monthUrl(ym: string, params: Record<string, string>, basePath?: string) {
+  // 홈(한눈에 보기)에 넣을 때는 basePath 로 월 이동
+  if (basePath) return `${basePath}?month=${ym}#visit-calendar`;
   const sp = new URLSearchParams({ view: "calendar", month: ym });
   for (const [k, v] of Object.entries(params)) if (v) sp.set(k, v);
   return `/admin/visits?${sp.toString()}`;
@@ -29,11 +31,15 @@ export default function VisitCalendar({
   month,
   todayStr,
   params,
+  basePath,
+  compact,
 }: {
   rows: VisitReservation[];
   month: string; // YYYY-MM
   todayStr: string; // YYYY-MM-DD
   params: Record<string, string>;
+  basePath?: string;
+  compact?: boolean; // 홈 대시보드용: 셀 높이 축소
 }) {
   const [year, m] = month.split("-").map(Number); // m: 1-indexed
   const monthIdx = m - 1;
@@ -61,14 +67,15 @@ export default function VisitCalendar({
 
   const prevYm = monthIdx === 0 ? `${year - 1}-12` : `${year}-${pad(m - 1)}`;
   const nextYm = monthIdx === 11 ? `${year + 1}-01` : `${year}-${pad(m + 1)}`;
+  const cellH = compact ? "min-h-[72px]" : "min-h-[96px]";
   const monthCount = Array.from(byDate.values()).reduce((s, a) => s + a.length, 0);
 
   return (
-    <div className="mt-4">
+    <div className={compact ? "" : "mt-4"}>
       {/* 월 네비게이션 */}
       <div className="flex items-center justify-between">
         <Link
-          href={monthUrl(prevYm, params)}
+          href={monthUrl(prevYm, params, basePath)}
           className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm hover:bg-gray-50"
         >
           ‹ 이전달
@@ -80,7 +87,7 @@ export default function VisitCalendar({
           </span>
         </div>
         <Link
-          href={monthUrl(nextYm, params)}
+          href={monthUrl(nextYm, params, basePath)}
           className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm hover:bg-gray-50"
         >
           다음달 ›
@@ -103,13 +110,13 @@ export default function VisitCalendar({
       <div className="grid grid-cols-7 gap-px rounded-b-xl border border-t-0 border-gray-200 bg-gray-200">
         {cells.map((d, i) => {
           if (d === null)
-            return <div key={i} className="min-h-[96px] bg-gray-50/50" />;
+            return <div key={i} className={`${cellH} bg-gray-50/50`} />;
           const dateKey = `${year}-${pad(m)}-${pad(d)}`;
           const visits = byDate.get(dateKey) ?? [];
           const isToday = dateKey === todayStr;
           const weekday = i % 7;
           return (
-            <div key={i} className="min-h-[96px] bg-white p-1.5">
+            <div key={i} className={`${cellH} bg-white p-1.5`}>
               <div
                 className={`text-xs font-semibold ${
                   isToday
