@@ -9,7 +9,8 @@ import {
   VISITS_TABLE,
   CALLS_TABLE,
 } from "@/lib/supabase/server";
-import { isAuthed } from "@/lib/require-auth";
+import { currentRole, currentUserName, isAuthed } from "@/lib/require-auth";
+import { logActivity } from "@/lib/activity";
 import { COOKIE_OPTS, SP_COOKIE } from "@/lib/auth";
 import { INFLOW_ROUTES, INFLOW_TYPES, isGrade, isStage } from "@/lib/sales-db";
 import { isDateStr, kstDateOf, kstToday } from "@/lib/kst";
@@ -291,8 +292,14 @@ export async function setNextDate(id: string, date: string) {
 export async function deleteCustomer(id: string) {
   if (!(await isAuthed())) throw new Error("로그인이 필요합니다.");
   const supabase = createServiceClient();
+  const { data: cur } = await supabase.from(CUST).select("db_no,customer_name,assignee").eq("id", id).single();
   const { error } = await supabase.from(CUST).delete().eq("id", id);
   if (error) throw new Error(error.message);
+  await logActivity("delete", {
+    actor: await currentUserName(),
+    role: await currentRole(),
+    detail: `고객DB ${cur?.db_no ?? ""} ${cur?.customer_name ?? ""} (담당 ${cur?.assignee ?? "-"})`,
+  });
   refresh();
 }
 

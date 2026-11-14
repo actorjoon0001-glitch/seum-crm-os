@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createServiceClient, CALLS_TABLE } from "@/lib/supabase/server";
-import { isAuthed } from "@/lib/require-auth";
+import { currentRole, currentUserName, isAuthed } from "@/lib/require-auth";
+import { logActivity } from "@/lib/activity";
 import { isCallChannel, CALL_STATUSES } from "@/lib/types";
 import { kstInputToISO } from "@/lib/kst";
 
@@ -84,7 +85,13 @@ export async function updateCallField(id: string, field: EditableField, value: s
 export async function deleteCallLead(id: string) {
   await guard();
   const supabase = createServiceClient();
+  const { data: cur } = await supabase.from(CALLS_TABLE).select("channel,name,phone").eq("id", id).single();
   const { error } = await supabase.from(CALLS_TABLE).delete().eq("id", id);
   if (error) throw new Error(error.message);
+  await logActivity("delete", {
+    actor: await currentUserName(),
+    role: await currentRole(),
+    detail: `${cur?.channel === "main" ? "대표번호" : "영업폰"} 전화고객 ${cur?.name ?? ""} ${cur?.phone ?? ""}`,
+  });
   refresh();
 }

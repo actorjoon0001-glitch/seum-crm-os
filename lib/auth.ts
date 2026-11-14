@@ -1,7 +1,6 @@
-// 단일 관리자 비밀번호 인증.
-// 비밀번호는 환경변수 ADMIN_PASSWORD 에 보관하고, 세션 쿠키에는
-// 비밀번호 자체가 아니라 해시 토큰만 저장합니다.
-// (미들웨어=Edge, 서버액션=Node 모두에서 Web Crypto 사용)
+// 세움OS 계정(Supabase Auth 이메일 · 비밀번호) 기반 로그인 세션.
+// 로그인에 성공하면 직원 정보(이름 · 권한)를 서명한 쿠키를 발급합니다.
+// 쿠키는 서버 비밀키로 HMAC 서명되므로 위조할 수 없습니다.
 
 export const AUTH_COOKIE = "seum_auth";
 // 영업일지에서 마지막으로 쓴 영업사원 이름(자동 선택용)
@@ -20,11 +19,64 @@ export const COOKIE_OPTS = {
   maxAge: 60 * 60 * 24 * 30, // 30일
 };
 
-export async function sessionToken(): Promise<string> {
-  const secret = process.env.ADMIN_PASSWORD ?? "";
-  const bytes = new TextEncoder().encode(`seum-os::${secret}`);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+export type Role = "owner" | "staff";
+
+export interface Session {
+  eid: string | null; // employees.id (포털 자동로그인은 null)
+  name: string | null;
+  email: string | null;
+  role: Role;
+  exp: number; // 만료(ms)
+}
+
+function secret(): string {
+  return process.env.SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.ADMIN_PASSWORD || "";
+}
+
+const b64url = (bytes: Uint8Array) =>
+  Buffer.from(bytes).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const fromB64url = (s: string) => Buffer.from(s.replace(/-/g, "+").replace(/_/g, "/"), "base64");
+
+async function hmac(data: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(`seum-crm::${secret()}`),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(data));
+  return b64url(new Uint8Array(sig));
+}
+
+export async function signSession(s: Omit<Session, "exp">, maxAgeSec = COOKIE_OPTS.maxAge): Promise<string> {
+  const body = b64url(new TextEncoder().encode(JSON.stringify({ ...s, exp: Date.now() + maxAgeSec * 1000 })));
+  return `${body}.${await hmac(body)}`;
+}
+
+export async function verifySession(token: string | undefined | null): Promise<Session | null> {
+  if (!token || !secret()) return null;
+  const [body, sig] = token.split(".");
+  if (!body || !sig) return null;
+  if ((await hmac(body)) !== sig) return null;
+  try {
+    const s = JSON.parse(fromB64url(body).toString("utf8")) as Session;
+    if (!s.exp || s.exp < Date.now()) return null;
+    return s;
+  } catch {
+    return null;
+  }
+}
+
+// 세움OS 권한 → 고객관리OS 관리자 여부 (admin / master / superadmin)
+export function isOwnerEmployee(e: { role?: string | null; permission?: string | null; email?: string | null }): boolean {
+  const r = (e.role ?? "").toLowerCase();
+  const p = (e.permission ?? "").toLowerCase();
+  if (["admin", "master", "superadmin"].includes(r) || ["admin", "master", "superadmin"].includes(p)) return true;
+  // 추가 관리자: OWNER_EMAILS 환경변수 (쉼표로 구분)
+  const extra = (process.env.OWNER_EMAILS ?? "")
+    .split(",")
+    .map((x) => x.trim().toLowerCase())
+    .filter(Boolean);
+  return !!e.email && extra.includes(e.email.toLowerCase());
 }

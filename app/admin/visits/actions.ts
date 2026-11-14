@@ -2,8 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { createServiceClient, VISITS_TABLE } from "@/lib/supabase/server";
+import { currentRole, currentUserName, isAuthed } from "@/lib/require-auth";
+import { logActivity } from "@/lib/activity";
 
 export async function updateVisitStatus(id: string, status: string) {
+  if (!(await isAuthed())) throw new Error("로그인이 필요합니다.");
   const supabase = createServiceClient();
   const { error } = await supabase
     .from(VISITS_TABLE)
@@ -14,6 +17,7 @@ export async function updateVisitStatus(id: string, status: string) {
 }
 
 export async function updateVisitAssignee(id: string, assigned_to: string) {
+  if (!(await isAuthed())) throw new Error("로그인이 필요합니다.");
   const supabase = createServiceClient();
   const { error } = await supabase
     .from(VISITS_TABLE)
@@ -26,6 +30,7 @@ export async function updateVisitAssignee(id: string, assigned_to: string) {
 // 직원(관리자) 메모 저장. 고객이 폼에 쓴 memo 와 절대 섞이지 않도록
 // payload 의 별도 키(staffMemo)에 병합 저장한다.
 export async function updateVisitStaffMemo(id: string, staffMemo: string) {
+  if (!(await isAuthed())) throw new Error("로그인이 필요합니다.");
   const supabase = createServiceClient();
 
   const { data, error: selErr } = await supabase
@@ -61,8 +66,15 @@ export async function updateVisitStaffMemo(id: string, staffMemo: string) {
 
 // 방문예약 행 삭제
 export async function deleteVisit(id: string) {
+  if (!(await isAuthed())) throw new Error("로그인이 필요합니다.");
   const supabase = createServiceClient();
+  const { data: cur } = await supabase.from(VISITS_TABLE).select("name,phone,visit_date").eq("id", id).single();
   const { error } = await supabase.from(VISITS_TABLE).delete().eq("id", id);
   if (error) throw new Error(error.message);
+  await logActivity("delete", {
+    actor: await currentUserName(),
+    role: await currentRole(),
+    detail: `방문예약 ${cur?.name ?? ""} ${cur?.phone ?? ""} (방문일 ${cur?.visit_date ?? "-"})`,
+  });
   revalidatePath("/admin/visits");
 }
