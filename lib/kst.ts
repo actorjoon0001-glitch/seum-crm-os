@@ -80,3 +80,10 @@ export function dateLabel(date: string | null | undefined): string {
 export function kstDayStartISO(date: string): string {
   return new Date(Date.parse(`${date}T00:00:00Z`) - KST_OFFSET_MS).toISOString();
 }
+
+// ISO 시각 → 그 시각의 KST 날짜 "YYYY-MM-DD"
+export function kstDateOf(iso: string | null | undefined): string {
+  const t = iso ? Date.parse(iso) : NaN;
+  if (Number.isNaN(t)) return kstToday();
+  return new Date(t + KST_OFFSET_MS).toISOString().slice(0, 10);
+}

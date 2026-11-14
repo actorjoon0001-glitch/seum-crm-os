@@ -2,27 +2,28 @@ import Link from "next/link";
 import {
   createServiceClient,
   hasSupabaseEnv,
-  LOGS_TABLE,
-  CALLS_TABLE,
-  VISITS_TABLE,
+  SALES_CUSTOMERS_TABLE as CUST,
+  SALES_CUSTOMER_LOGS_TABLE as LOGS,
 } from "@/lib/supabase/server";
 import { requireAuth } from "@/lib/require-auth";
 import { isMissingTable } from "@/lib/db-errors";
-import { SALES_LOGS_SQL } from "@/lib/sales-logs-sql";
-import type { SalesLog } from "@/lib/types";
-import { formatManWon } from "@/lib/format";
-import { addDays, dateLabel, isDateStr, kstDayStartISO, kstToday } from "@/lib/kst";
+import { SALES_DB_SQL } from "@/lib/sales-db-sql";
 import {
   computeKpi,
-  dueFollowUps,
+  INFLOW_ROUTES,
+  KPI_STAGES,
   KPI_WEIGHTS,
   PERIODS,
   periodRange,
   pct,
-  type FollowUpRow,
+  STAGES,
   type KpiRow,
   type PeriodKey,
-} from "@/lib/kpi";
+  type SalesCustomer,
+  type SalesCustomerLog,
+} from "@/lib/sales-db";
+import { getSalespeople } from "@/lib/staff";
+import { dateLabel, isDateStr } from "@/lib/kst";
 import AppNav from "@/app/AppNav";
 import SetupSqlNotice from "@/app/SetupSqlNotice";
 
@@ -34,7 +35,6 @@ type Search = { period?: string; from?: string; to?: string };
 
 export default async function KpiPage({ searchParams }: { searchParams: Search }) {
   await requireAuth("/admin/kpi");
-
   const custom = isDateStr(searchParams.from) && isDateStr(searchParams.to);
   const periodKey: PeriodKey = custom
     ? "custom"
@@ -42,7 +42,6 @@ export default async function KpiPage({ searchParams }: { searchParams: Search }
       ? (searchParams.period as PeriodKey)
       : "month";
   const [from, to] = periodRange(periodKey, searchParams.from, searchParams.to);
-  const today = kstToday();
 
   const shell = (body: React.ReactNode) => (
     <main className="mx-auto max-w-none px-4 py-6">
@@ -51,7 +50,7 @@ export default async function KpiPage({ searchParams }: { searchParams: Search }
         <div>
           <h1 className="text-2xl font-bold">📈 영업 KPI</h1>
           <p className="mt-0.5 text-sm text-gray-500">
-            영업일지 기록으로 자동 집계 · {dateLabel(from)} ~ {dateLabel(to)}
+            고객 DB · 영업일지 기록으로 자동 집계 · {dateLabel(from)} ~ {dateLabel(to)}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -60,33 +59,17 @@ export default async function KpiPage({ searchParams }: { searchParams: Search }
               <Link
                 key={p.key}
                 href={`/admin/kpi?period=${p.key}`}
-                className={`rounded-lg px-3 py-1.5 ${
-                  periodKey === p.key ? "bg-seum text-white" : "text-gray-500 hover:text-gray-800"
-                }`}
+                className={`rounded-lg px-3 py-1.5 ${periodKey === p.key ? "bg-seum text-white" : "text-gray-500 hover:text-gray-800"}`}
               >
                 {p.label}
               </Link>
             ))}
           </div>
           <form action="/admin/kpi" className="flex items-center gap-1 text-sm">
-            <input
-              type="date"
-              name="from"
-              defaultValue={from}
-              className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 outline-none focus:border-seum"
-            />
+            <input type="date" name="from" defaultValue={from} className="rounded-lg border border-gray-300 bg-white px-2 py-1.5" />
             <span className="text-gray-400">~</span>
-            <input
-              type="date"
-              name="to"
-              defaultValue={to}
-              className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 outline-none focus:border-seum"
-            />
-            <button
-              className={`rounded-lg px-3 py-1.5 font-semibold ${
-                periodKey === "custom" ? "bg-seum text-white" : "bg-gray-900 text-white"
-              }`}
-            >
+            <input type="date" name="to" defaultValue={to} className="rounded-lg border border-gray-300 bg-white px-2 py-1.5" />
+            <button className={`rounded-lg px-3 py-1.5 font-semibold text-white ${periodKey === "custom" ? "bg-seum" : "bg-gray-900"}`}>
               조회
             </button>
           </form>
@@ -98,142 +81,121 @@ export default async function KpiPage({ searchParams }: { searchParams: Search }
 
   if (!hasSupabaseEnv()) return shell(<p className="text-sm text-gray-400">Supabase 연결이 필요합니다.</p>);
   const supabase = createServiceClient();
-  const fromISO = kstDayStartISO(from);
-  const toISO = kstDayStartISO(addDays(to, 1));
 
-  const [logsRes, fuRes, visitRes, callRes] = await Promise.all([
-    supabase.from(LOGS_TABLE).select("*").gte("log_date", from).lte("log_date", to).limit(20000),
+  const [custRes, logRes] = await Promise.all([
     supabase
-      .from(LOGS_TABLE)
-      .select("id,salesperson,customer_name,phone,phone_digits,stage,next_action_date,next_action,log_date,created_at")
-      .not("next_action_date", "is", null)
-      .limit(20000),
+      .from(CUST)
+      .select("id,assignee,received_date,inflow_type,inflow_route,stage,next_action_date")
+      .limit(50000),
     supabase
-      .from(VISITS_TABLE)
-      .select("assigned_to")
-      .not("assigned_to", "is", null)
-      .gte("submitted_at", fromISO)
-      .lt("submitted_at", toISO)
-      .limit(5000),
-    supabase
-      .from(CALLS_TABLE)
-      .select("salesperson")
-      .not("salesperson", "is", null)
-      .gte("called_at", fromISO)
-      .lt("called_at", toISO)
-      .limit(5000),
+      .from(LOGS)
+      .select("customer_id,assignee,log_date,kind,to_stage")
+      .gte("log_date", from)
+      .lte("log_date", to)
+      .limit(50000),
   ]);
-
-  if (logsRes.error) {
+  if (custRes.error) {
     return shell(
-      isMissingTable(logsRes.error, "sales_logs") ? (
+      isMissingTable(custRes.error) ? (
         <SetupSqlNotice
-          title="영업일지 테이블"
-          table="sales_logs"
-          sql={SALES_LOGS_SQL}
-          message={logsRes.error.message}
-          after="영업일지 기록이 KPI로 집계됩니다."
+          title="고객 DB 테이블"
+          table="sales_customers"
+          sql={SALES_DB_SQL}
+          message={custRes.error.message}
+          after="고객 DB · 일지 기록이 KPI로 집계됩니다."
         />
       ) : (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">
-          불러오기 실패: {logsRes.error.message}
-        </div>
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">불러오기 실패: {custRes.error.message}</div>
       )
     );
   }
 
-  const logs = (logsRes.data ?? []) as SalesLog[];
-
-  // 후속 연락 지연: 고객별 최신 기록의 다음 연락일이 어제 이전인데 진행 중
-  const overdue = new Map<string, number>();
-  for (const f of dueFollowUps((fuRes.data ?? []) as FollowUpRow[], addDays(today, -1)))
-    overdue.set(f.salesperson, (overdue.get(f.salesperson) ?? 0) + 1);
-
-  // 배정 리드: 기간 내 방문예약(담당 영업사원) + 전화 고객(영업사원)
-  const assigned = new Map<string, number>();
-  const addAssigned = (name: unknown) => {
-    const n = String(name ?? "").trim();
-    if (n) assigned.set(n, (assigned.get(n) ?? 0) + 1);
-  };
-  for (const r of visitRes.data ?? []) addAssigned((r as { assigned_to?: string }).assigned_to);
-  for (const r of callRes.data ?? []) addAssigned((r as { salesperson?: string }).salesperson);
-
-  const rows = computeKpi(logs, { overdue, assigned });
+  const customers = (custRes.data ?? []) as SalesCustomer[];
+  const logs = (logRes.data ?? []) as SalesCustomerLog[];
+  const people = (await getSalespeople(supabase)).filter((s) => s.fromStaff).map((s) => s.name);
+  const rows = computeKpi(customers, logs, from, to, people);
   const team = computeKpi(
-    logs.map((l) => ({ ...l, salesperson: "팀 전체" })),
-    {
-      overdue: new Map([["팀 전체", Array.from(overdue.values()).reduce((a, b) => a + b, 0)]]),
-      assigned: new Map([["팀 전체", Array.from(assigned.values()).reduce((a, b) => a + b, 0)]]),
-    }
+    customers.map((c) => ({ ...c, assignee: "팀" })),
+    logs.map((l) => ({ ...l, assignee: "팀" })),
+    from,
+    to
   )[0];
   const maxScore = Math.max(1, ...rows.map((r) => r.score));
 
+  // 유입경로별 신규 DB (팀)
+  const fresh = customers.filter((c) => c.received_date >= from && c.received_date <= to);
+  const byRoute = INFLOW_ROUTES.map((r) => ({ label: r as string, n: fresh.filter((c) => c.inflow_route === r).length }))
+    .filter((r) => r.n > 0)
+    .sort((a, b) => b.n - a.n);
+  // 현재 진행단계 분포 (전체 보유 DB)
+  const byStage = STAGES.map((s) => ({ label: s.value, n: customers.filter((c) => c.stage === s.value).length }));
+
   return shell(
     <>
-      {/* 팀 합계 */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <Tile label="KPI 점수 (팀)" value={fmt(team?.score ?? 0)} accent />
-        <Tile label="총 활동" value={fmt(team?.total ?? 0)} unit="건" />
-        <Tile label="신규 고객" value={fmt(team?.newCustomers ?? 0)} unit="명" />
-        <Tile label="대면 상담 (방문·현장)" value={fmt((team?.visit ?? 0) + (team?.site ?? 0))} unit="건" />
-        <Tile label="계약" value={fmt(team?.contract ?? 0)} unit="건" sub={team?.amount ? formatManWon(team.amount) : undefined} />
-        <Tile label="계약 전환율" value={pct(team?.contractRate ?? 0)} sub={`상담 고객 ${fmt(team?.customers ?? 0)}명 중`} />
+        <Tile label="신규 고객 DB" value={fmt(team?.newDb ?? 0)} unit="명" sub={`배정 ${team?.assigned ?? 0} · 개별 ${team?.personal ?? 0}`} />
+        <Tile label="방문완료" value={fmt(team?.reached["방문완료"] ?? 0)} unit="명" sub={`방문전환율 ${pct(team?.visitRate ?? 0)}`} />
+        <Tile label="견적발송" value={fmt(team?.reached["견적발송"] ?? 0)} unit="명" />
+        <Tile label="계약완료" value={fmt(team?.reached["계약완료"] ?? 0)} unit="명" sub={`계약전환율 ${pct(team?.contractRate ?? 0)}`} />
+        <Tile label="연락 지연" value={fmt(team?.overdue ?? 0)} unit="명" sub="다음 연락일 지난 진행중 고객" warn={(team?.overdue ?? 0) > 0} />
       </div>
 
       {rows.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-12 text-center text-sm text-gray-400">
-          이 기간에 기록된 영업일지가 없습니다.{" "}
+          집계할 데이터가 없습니다.{" "}
           <Link href="/admin/logs" className="font-semibold text-seum underline">
-            영업일지 쓰러 가기 →
+            고객 DB · 일지 쓰러 가기 →
           </Link>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
-          <table className="w-full min-w-[1100px] text-left text-xs">
+          <table className="w-full min-w-[1150px] text-left text-xs">
             <thead className="border-b border-gray-100 bg-gray-50 text-gray-500">
               <tr>
-                <th className="px-3 py-2 font-medium">순위</th>
+                <th className="px-3 py-2 text-center font-medium">순위</th>
                 <th className="px-3 py-2 font-medium">영업사원</th>
-                <th className="w-[18%] px-3 py-2 font-medium">KPI 점수</th>
+                <th className="w-[17%] px-3 py-2 font-medium">KPI 점수</th>
                 <Th>일지 작성일</Th>
-                <Th>총 활동</Th>
-                <Th>상담 고객</Th>
-                <Th>신규</Th>
-                <Th>전화</Th>
-                <Th>방문</Th>
-                <Th>현장</Th>
-                <Th>견적</Th>
-                <Th>계약</Th>
-                <Th>계약 금액</Th>
-                <Th>계약 전환율</Th>
-                <Th>대면율</Th>
-                <Th>배정 리드</Th>
+                <Th>신규 DB</Th>
+                <Th>배정/개별</Th>
+                {KPI_STAGES.map((s) => (
+                  <Th key={s}>{s}</Th>
+                ))}
+                <Th>방문전환율</Th>
+                <Th>계약전환율</Th>
+                <Th>진행중</Th>
+                <Th>보유 DB</Th>
                 <Th>연락 지연</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {rows.map((r, i) => (
-                <KpiTr key={r.salesperson} r={r} rank={i + 1} maxScore={maxScore} from={from} to={to} />
+                <KpiTr key={r.assignee} r={r} rank={i + 1} maxScore={maxScore} />
               ))}
             </tbody>
           </table>
         </div>
       )}
 
+      <div className="grid gap-4 lg:grid-cols-2">
+        <BarList title="유입경로별 신규 DB (기간 내)" items={byRoute} empty="기간 내 신규 DB가 없습니다." />
+        <BarList title="진행단계 현황 (현재 보유 DB 전체)" items={byStage} empty="고객 DB가 없습니다." />
+      </div>
+
       <div className="rounded-2xl border border-gray-200 bg-white p-4 text-xs leading-relaxed text-gray-500">
         <p className="font-semibold text-gray-700">KPI 계산 기준</p>
         <p className="mt-1">
-          <b>KPI 점수</b> = 신규 고객 ×{KPI_WEIGHTS.newCustomer} + 전화상담 ×{KPI_WEIGHTS.call} + 문자·카톡 ×
-          {KPI_WEIGHTS.message} + 방문상담 ×{KPI_WEIGHTS.visit} + 현장답사 ×{KPI_WEIGHTS.site} + 견적제출 ×
-          {KPI_WEIGHTS.quote} + 계약 ×{KPI_WEIGHTS.contract}
+          <b>KPI 점수</b> = 신규 DB ×{KPI_WEIGHTS.newDb} + 일지 작성일 ×{KPI_WEIGHTS.logDay} + 방문예정 ×{KPI_WEIGHTS["방문예정"]} +
+          방문완료 ×{KPI_WEIGHTS["방문완료"]} + 견적발송 ×{KPI_WEIGHTS["견적발송"]} + 계약협의 ×{KPI_WEIGHTS["계약협의"]} + 계약완료 ×
+          {KPI_WEIGHTS["계약완료"]}
         </p>
         <p>
-          <b>상담 고객</b>: 기간 내 일지에 기록된 고객 수(같은 연락처는 1명) · <b>신규</b>: 처음 기록된 연락처 ·{" "}
-          <b>계약 전환율</b>: 계약 고객 ÷ 상담 고객 · <b>대면율</b>: 방문·현장 상담 고객 ÷ 상담 고객
+          <b>신규 DB</b>: 접수일이 기간 안인 고객 · <b>방문예정~계약완료</b>: 기간 안에 그 단계로 진행(또는 그 단계로 등록)한 고객 수 ·{" "}
+          <b>일지 작성일</b>: 등록·단계변경·상담기록을 남긴 날짜 수
         </p>
         <p>
-          <b>배정 리드</b>: 기간 내 방문예약의 담당 영업사원 + 전화 고객의 영업사원으로 지정된 건수 ·{" "}
-          <b>연락 지연</b>: 다음 연락일이 지났는데 계약·이탈이 아닌 고객 수(기간 무관, 현재 기준)
+          <b>방문전환율 / 계약전환율</b>: 방문완료 · 계약완료 고객 ÷ 신규 DB · <b>진행중 / 보유 DB / 연락 지연</b>: 기간과 무관한 현재 기준
         </p>
       </div>
     </>
@@ -258,32 +220,15 @@ function Td({ children, strong, warn }: { children: React.ReactNode; strong?: bo
   );
 }
 
-function KpiTr({
-  r,
-  rank,
-  maxScore,
-  from,
-  to,
-}: {
-  r: KpiRow;
-  rank: number;
-  maxScore: number;
-  from: string;
-  to: string;
-}) {
-  const medal =
-    r.score <= 0 ? "-" : rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : String(rank);
+function KpiTr({ r, rank, maxScore }: { r: KpiRow; rank: number; maxScore: number }) {
+  const medal = r.score <= 0 ? "-" : rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : String(rank);
   const w = r.score > 0 ? Math.max(2, (r.score / maxScore) * 100) : 0;
   return (
     <tr className="hover:bg-gray-50/50">
       <td className="px-3 py-2.5 text-center text-sm">{medal}</td>
       <td className="whitespace-nowrap px-3 py-2.5">
-        <Link
-          href={`/admin/logs?${new URLSearchParams({ sp: r.salesperson, date: to })}`}
-          className="text-sm font-semibold text-gray-900 hover:text-seum"
-          title={`${from} ~ ${to} 일지 보기`}
-        >
-          {r.salesperson}
+        <Link href={`/admin/logs?sp=${encodeURIComponent(r.assignee)}`} className="text-sm font-semibold text-gray-900 hover:text-seum">
+          {r.assignee}
         </Link>
       </td>
       <td className="px-3 py-2.5" title={`KPI 점수 ${fmt(r.score)}점`}>
@@ -294,21 +239,49 @@ function KpiTr({
           <span className="w-10 text-right text-sm font-bold tabular-nums text-gray-900">{fmt(r.score)}</span>
         </div>
       </td>
-      <Td>{r.days}일</Td>
-      <Td strong>{r.total}</Td>
-      <Td>{r.customers}</Td>
-      <Td>{r.newCustomers}</Td>
-      <Td>{r.call}</Td>
-      <Td>{r.visit}</Td>
-      <Td>{r.site}</Td>
-      <Td>{r.quote}</Td>
-      <Td strong>{r.contract}</Td>
-      <Td>{r.amount ? formatManWon(r.amount) : "-"}</Td>
-      <Td>{r.customers ? pct(r.contractRate) : "-"}</Td>
-      <Td>{r.customers ? pct(r.meetRate) : "-"}</Td>
-      <Td>{r.assigned || "-"}</Td>
+      <Td>{r.logDays}일</Td>
+      <Td strong>{r.newDb}</Td>
+      <Td>
+        {r.assigned}/{r.personal}
+      </Td>
+      {KPI_STAGES.map((s) => (
+        <Td key={s} strong={s === "계약완료"}>
+          {r.reached[s]}
+        </Td>
+      ))}
+      <Td>{r.newDb ? pct(r.visitRate) : "-"}</Td>
+      <Td>{r.newDb ? pct(r.contractRate) : "-"}</Td>
+      <Td>{r.open}</Td>
+      <Td>{r.total}</Td>
       <Td warn={r.overdue > 0}>{r.overdue ? `${r.overdue}명` : "-"}</Td>
     </tr>
+  );
+}
+
+function BarList({ title, items, empty }: { title: string; items: { label: string; n: number }[]; empty: string }) {
+  const max = Math.max(1, ...items.map((i) => i.n));
+  const total = items.reduce((a, i) => a + i.n, 0);
+  return (
+    <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <h2 className="text-sm font-bold text-gray-800">{title}</h2>
+      {total === 0 ? (
+        <p className="mt-3 text-sm text-gray-400">{empty}</p>
+      ) : (
+        <ul className="mt-3 space-y-1.5">
+          {items.map((i) => (
+            <li key={i.label} className="flex items-center gap-2 text-xs" title={`${i.label} ${i.n}명`}>
+              <span className="w-16 shrink-0 text-gray-600">{i.label}</span>
+              <div className="h-3 flex-1 rounded bg-gray-100">
+                {i.n > 0 && <div className="h-3 rounded bg-seum" style={{ width: `${Math.max(2, (i.n / max) * 100)}%` }} />}
+              </div>
+              <span className="w-14 shrink-0 text-right tabular-nums text-gray-700">
+                {i.n}명 <span className="text-gray-400">{pct(i.n / total)}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -318,17 +291,19 @@ function Tile({
   unit,
   sub,
   accent,
+  warn,
 }: {
   label: string;
   value: string;
   unit?: string;
   sub?: string;
   accent?: boolean;
+  warn?: boolean;
 }) {
   return (
     <div className={`rounded-2xl border p-4 shadow-sm ${accent ? "border-seum bg-seum-light" : "border-gray-200 bg-white"}`}>
       <div className="text-xs font-medium text-gray-500">{label}</div>
-      <div className={`mt-1 text-2xl font-bold tabular-nums ${accent ? "text-seum-dark" : "text-gray-900"}`}>
+      <div className={`mt-1 text-2xl font-bold tabular-nums ${accent ? "text-seum-dark" : warn ? "text-red-600" : "text-gray-900"}`}>
         {value}
         {unit && <span className="ml-0.5 text-sm font-semibold text-gray-400">{unit}</span>}
       </div>
