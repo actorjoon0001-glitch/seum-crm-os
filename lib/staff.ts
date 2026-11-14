@@ -54,9 +54,9 @@ export async function getSalespeople(
 
 export const NO_BRANCH = "전시장 미지정";
 
-// 전시장별 묶음 (본사 → 1·2·3·4전시장 → 강화 → 기타 가나다순 → 미지정)
+// 전시장별 묶음 (서울마곡지사 → 본사 → 1·2·3·4전시장 → 강화 → 광주 → 안동 → 기타 가나다순 → 미지정)
 export function groupByBranch(people: Salesperson[]): { branch: string; people: Salesperson[] }[] {
-  const order = ["headquarters", "showroom1", "showroom2", "showroom3", "showroom4", "ganghwa", "gwangju", "andong"].map(
+  const order = ["magok", "headquarters", "showroom1", "showroom2", "showroom3", "showroom4", "ganghwa", "gwangju", "andong"].map(
     (k) => SHOWROOM_LABEL[k]
   );
   const map = new Map<string, Salesperson[]>();

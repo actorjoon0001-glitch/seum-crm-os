@@ -63,6 +63,7 @@ export const SHOWROOM_LABEL: Record<string, string> = {
   showroom4: "4전시장",
   gwangju: "광주전시장",
   andong: "안동전시장",
+  magok: "서울마곡지사",
 };
 
 export function showroomLabel(id: string | null | undefined): string {
