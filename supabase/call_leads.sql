@@ -1,10 +1,10 @@
--- 전화 고객 DB: 대표번호 전화 고객(main) / 개인 영업사원 핸드폰 전화 고객(mobile)
+-- 전화 고객 DB: 대표번호 전화 고객(main) / 개인 영업사원 영업폰 전화 고객(mobile)
 -- 고객관리OS 화면에서 직원이 1건씩 수기로 등록합니다.
 -- Supabase 대시보드 > SQL Editor 에 붙여넣고 Run 하세요.
 
 create table if not exists public.call_leads (
   id           uuid primary key default gen_random_uuid(),
-  channel      text not null check (channel in ('main', 'mobile')), -- main=대표번호, mobile=영업사원 핸드폰
+  channel      text not null check (channel in ('main', 'mobile')), -- main=대표번호, mobile=영업사원 영업폰
   called_at    timestamptz not null default now(),  -- 통화(문의) 일시
   name         text,                                -- 고객명
   phone        text,                                -- 고객 연락처
