@@ -90,16 +90,13 @@ export default function JandiSettings({
 
   return (
     <form action={action} className="space-y-4">
-      <div className="space-y-2">
-        <UrlRow name="teamUrl" label="영업팀 토픽" hint="아침 브리핑 · 새 방문예약 · 대표번호 문의" state={team} />
-        <UrlRow name="adminUrl" label="관리자 토픽" hint="관리자 일일 요약 · 로그인 실패 경고" state={admin} />
-      </div>
-
-      <details className="rounded-lg border border-gray-200 p-3">
-        <summary className="cursor-pointer text-sm font-semibold text-gray-700">
-          전시장별 토픽 (선택) — 연결한 전시장은 그 전시장 것만 따로 받습니다
-        </summary>
-        <div className="mt-2 space-y-2">
+      <div className="rounded-lg border border-gray-200 p-3">
+        <div className="text-sm font-semibold text-gray-800">전시장별 토픽</div>
+        <p className="mb-2 text-[11px] text-gray-500">
+          각 전시장 영업팀 토픽의 웹훅 URL을 넣으세요. 그 전시장의 아침 브리핑 · 새 방문예약(고객이 고른 전시장) · 대표번호
+          문의(담당 영업사원 소속)가 해당 토픽으로 갑니다.
+        </p>
+        <div className="space-y-2">
           {branches.map((b) => (
             <div key={b.branch}>
               <input type="hidden" name="branch" value={b.branch} />
@@ -107,7 +104,12 @@ export default function JandiSettings({
             </div>
           ))}
         </div>
-      </details>
+      </div>
+
+      <div className="space-y-2 rounded-lg border border-gray-200 p-3">
+        <UrlRow name="adminUrl" label="관리자 토픽" hint="관리자 요약 · 로그인 실패 경고 · 전시장 미선택 예약" state={admin} />
+        <UrlRow name="teamUrl" label="전체 영업팀 토픽 (선택)" hint="모든 전시장 알림을 한 곳에서도 받을 때만" state={team} />
+      </div>
 
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
         <span className="flex items-center gap-1">
@@ -146,7 +148,7 @@ export default function JandiSettings({
         <Save />
         <button
           type="button"
-          disabled={briefPending || !team.set}
+          disabled={briefPending || !(team.set || admin.set || branches.some((b) => b.state.set))}
           onClick={() => startBrief(async () => setBriefMsg(await sendBriefNow()))}
           className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:border-seum hover:text-seum disabled:opacity-40"
         >

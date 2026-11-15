@@ -128,6 +128,8 @@ export async function buildDailyBrief(supabase: SupabaseClient): Promise<BriefRe
   const fails = acts.filter((a) => a.kind === "login_failed");
   const deletes = acts.filter((a) => a.kind === "delete");
   const wroteCount = people.filter((p) => wrote.has(p.name)).length;
+  // 어느 전시장 토픽에도 안 가는 오늘 방문 (전시장 미선택 + 담당 미배정)
+  const orphan = todayVisits.filter((r) => !visitRoom(r) || !r.assigned_to);
   const admin: JandiMessage = {
     body: `🛡️ [관리자] ${dateLabel(yesterday)} 고객관리OS 요약\n관리자 화면: ${appUrl("/admin/manage")}`,
     color: "#111827",
@@ -146,6 +148,10 @@ export async function buildDailyBrief(supabase: SupabaseClient): Promise<BriefRe
         description: `미작성: ${people.filter((p) => !wrote.has(p.name)).map((p) => p.name).join(", ") || "없음"}`,
       },
       { title: `⏰ 방문 결과 미입력 ${pending.length}건`, description: lines(pending.map((r) => visitLine(r, true)), "없음") },
+      {
+        title: `⚠ 오늘 방문 중 전시장 미선택 · 담당 미배정 ${orphan.length}건`,
+        description: lines(orphan.map((r) => visitLine(r)), "없음"),
+      },
     ],
   };
 

@@ -63,7 +63,7 @@ export async function testJandi(target: string): Promise<ActionResult> {
     color: "#10B981",
     sections: [
       {
-        title: target === "team" ? "영업팀 토픽" : target === "admin" ? "관리자 토픽" : `${target} 토픽`,
+        title: target === "team" ? "전체 영업팀 토픽" : target === "admin" ? "관리자 토픽" : `${target} 토픽`,
         description: `이 토픽으로 알림이 옵니다.\n${appUrl("/")}`,
       },
     ],
@@ -75,7 +75,9 @@ export async function testJandi(target: string): Promise<ActionResult> {
 export async function sendBriefNow(): Promise<ActionResult> {
   if (!(await isOwner())) return { ok: false, error: "관리자만 가능합니다." };
   const { value: cfg } = await getJandiConfig();
-  if (!validJandiUrl(cfg.teamUrl) && !validJandiUrl(cfg.adminUrl)) return { ok: false, error: "먼저 웹훅 URL을 저장해 주세요." };
+  const any =
+    validJandiUrl(cfg.teamUrl) || validJandiUrl(cfg.adminUrl) || Object.values(cfg.branchUrls ?? {}).some((u) => validJandiUrl(u));
+  if (!any) return { ok: false, error: "먼저 웹훅 URL을 저장해 주세요." };
   const report: string[] = [];
   await sendDailyBrief({ ...cfg, brief: true, admin: true }, report);
   return { ok: true, message: report.join(" · ") || "보낼 대상이 없습니다." };
