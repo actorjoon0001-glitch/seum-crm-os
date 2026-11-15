@@ -194,7 +194,10 @@ export function newVisitMessage(r: VisitReservation): { msg: JandiMessage; branc
 }
 
 // 대표번호 문의 등록 알림
-export function newCallMessage(c: Pick<CallLead, "name" | "phone" | "inquiry" | "region" | "salesperson" | "called_at">, by: string | null): JandiMessage {
+export function newCallMessage(
+  c: Pick<CallLead, "name" | "phone" | "inquiry" | "region" | "salesperson" | "called_at"> & { grade?: string | null },
+  by: string | null
+): JandiMessage {
   return {
     body: `☎️ 대표번호 문의가 등록되었습니다 — ${c.name || "(이름없음)"}`,
     color: "#F59E0B",
@@ -205,6 +208,7 @@ export function newCallMessage(c: Pick<CallLead, "name" | "phone" | "inquiry" | 
           `통화: ${kstShort(c.called_at)}`,
           c.region && `지역: ${c.region}`,
           c.inquiry && `문의: ${c.inquiry}`,
+          c.grade && `고객등급: ${c.grade}`,
           `담당: ${c.salesperson || "⚠ 미배정"}`,
           by && `등록: ${by}`,
         ]

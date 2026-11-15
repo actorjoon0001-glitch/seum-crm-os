@@ -360,6 +360,7 @@ export async function importAssigned(ref: string, assignee: string, branch: stri
       region: data.region,
       inflow_type: data.channel === "main" ? "배정" : "개별",
       inflow_route: data.channel === "main" ? "대표번호" : "기타",
+      grade: isGrade(String(data.grade ?? "")) ? String(data.grade) : null,
       memo: data.inquiry,
     };
   } else return { ok: false, error: "잘못된 요청입니다." };
