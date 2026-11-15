@@ -154,6 +154,8 @@ export interface CallLead {
   inquiry: string | null;
   status: string | null;
   grade?: string | null; // 고객등급 A~E
+  branch?: string | null; // 넘긴 전시장 (대표번호 → 전시장 이관)
+  handed_at?: string | null; // 넘긴 시각
   memo: string | null;
   created_at: string;
   updated_at: string | null;

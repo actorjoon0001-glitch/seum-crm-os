@@ -1,6 +1,6 @@
 // 잔디로 보낼 메시지 만들기: 아침 브리핑 · 새 방문예약 · 대표번호 문의 · 관리자 요약
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { SALES_CUSTOMERS_TABLE, SALES_CUSTOMER_LOGS_TABLE, VISITS_TABLE } from "@/lib/supabase/server";
+import { CALLS_TABLE, SALES_CUSTOMERS_TABLE, SALES_CUSTOMER_LOGS_TABLE, VISITS_TABLE } from "@/lib/supabase/server";
 import { showroomLabel, type CallLead, type VisitReservation } from "@/lib/types";
 import { isOpenStage, type SalesCustomer } from "@/lib/sales-db";
 import { getSalespeople, groupByBranch, NO_BRANCH } from "@/lib/staff";
@@ -41,7 +41,7 @@ export async function buildDailyBrief(supabase: SupabaseClient): Promise<BriefRe
   const today = kstToday();
   const yesterday = addDays(today, -1);
 
-  const [todayVisitsRes, openVisitsRes, custRes, ylogRes, actRes, staff] = await Promise.all([
+  const [todayVisitsRes, openVisitsRes, custRes, ylogRes, actRes, staff, handedRes] = await Promise.all([
     supabase.from(VISITS_TABLE).select("*").eq("visit_date", today).limit(500),
     supabase.from(VISITS_TABLE).select("*").or("status.is.null,status.in.(new,scheduled)").limit(3000),
     supabase
@@ -57,7 +57,10 @@ export async function buildDailyBrief(supabase: SupabaseClient): Promise<BriefRe
       .lt("created_at", kstDayStartISO(today))
       .limit(5000),
     getSalespeople(supabase),
+    // 대표번호에서 전시장으로 넘어왔는데 아직 '신규' 상태인 문의
+    supabase.from(CALLS_TABLE).select("*").eq("channel", "main").not("branch", "is", null).eq("status", "new").limit(500),
   ]);
+  const handed = ((handedRes.error ? [] : handedRes.data) ?? []) as CallLead[];
 
   const people = staff.filter((s) => s.fromStaff);
   const branchOf = new Map(people.map((p) => [p.name, p.branch?.trim() || NO_BRANCH]));
@@ -91,11 +94,22 @@ export async function buildDailyBrief(supabase: SupabaseClient): Promise<BriefRe
       .map((g) => ({ branch: g.branch, names: g.people.filter((p) => !wrote.has(p.name)).map((p) => p.name) }))
       .filter((g) => g.names.length > 0);
 
+    const hc = handed.filter((c) => !branch || c.branch === branch);
     const sections: JandiSection[] = [
       { title: `🏠 오늘 방문 예정 ${tv.length}건`, description: lines(tv.map((r) => visitLine(r)), "오늘 방문 예정 고객이 없습니다.") },
       {
         title: `⏰ 방문 결과 미입력 ${pv.length}건`,
         description: lines(pv.map((r) => visitLine(r, true)), "모두 입력되었습니다. 👍"),
+      },
+      {
+        title: `📨 대표번호에서 넘어온 미처리 문의 ${hc.length}건`,
+        description: lines(
+          hc.map(
+            (c) =>
+              `• ${branch ? "" : `[${c.branch}] `}${c.name || "(이름없음)"}${c.phone ? ` ${c.phone}` : ""}${c.inquiry ? ` · ${c.inquiry}` : ""} · ${c.salesperson ? `담당 ${c.salesperson}` : "⚠ 담당 미배정"}`
+          ),
+          "없음"
+        ),
       },
       {
         title: `📌 오늘 연락할 고객 ${fu.length}명 (⚠ = 연락일 지남)`,

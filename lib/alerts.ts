@@ -134,15 +134,18 @@ export async function runTick(): Promise<{ ok: boolean; report: string[] }> {
 
 // 대표번호 문의 등록 즉시 알림 (등록 화면에서 호출)
 export async function notifyNewCall(
-  c: Pick<CallLead, "name" | "phone" | "inquiry" | "region" | "salesperson" | "called_at"> & { grade?: string | null },
+  c: Pick<CallLead, "name" | "phone" | "inquiry" | "region" | "salesperson" | "called_at"> & {
+    grade?: string | null;
+    branch?: string | null;
+  },
   by: string | null
 ) {
   try {
     const { value: cfg, missing } = await getJandiConfig();
     if (missing || !cfg.newCall || !anyUrl(cfg)) return;
-    // 담당 영업사원의 전시장 토픽으로 (담당 미배정이면 전체/관리자 토픽)
-    let branch: string | null = null;
-    if (c.salesperson) {
+    // 넘길 전시장이 정해졌으면 그 전시장 토픽 → 아니면 담당 영업사원의 전시장 토픽 (둘 다 없으면 전체/관리자)
+    let branch: string | null = c.branch ?? null;
+    if (!branch && c.salesperson) {
       const staff = await getSalespeople(createServiceClient());
       branch = staff.find((s) => s.name === c.salesperson)?.branch ?? null;
     }
@@ -152,6 +155,44 @@ export async function notifyNewCall(
     if (route.url !== cfg.teamUrl && validJandiUrl(cfg.teamUrl)) await sendJandi(cfg.teamUrl, msg);
   } catch {
     /* 알림 실패는 등록에 영향 없음 */
+  }
+}
+
+// 대표번호 문의를 전시장으로 넘겼을 때: 그 전시장 토픽으로 알림
+export async function notifyCallHandoff(
+  c: Pick<CallLead, "name" | "phone" | "inquiry" | "region" | "salesperson" | "called_at" | "memo"> & {
+    grade?: string | null;
+  },
+  branch: string,
+  by: string | null
+) {
+  try {
+    const { value: cfg, missing } = await getJandiConfig();
+    if (missing || !anyUrl(cfg)) return;
+    const route = routeUrl(cfg, branch);
+    if (!route.url) return;
+    await sendJandi(route.url, {
+      body: `📨 대표번호 문의가 [${branch}]으로 넘어왔습니다 — ${c.name || "(이름없음)"}`,
+      color: "#6366F1",
+      sections: [
+        {
+          title: `${c.name || "(이름없음)"}${c.phone ? ` · ${c.phone}` : ""}`,
+          description: [
+            c.region && `지역: ${c.region}`,
+            c.inquiry && `문의: ${c.inquiry}`,
+            c.grade && `고객등급: ${c.grade}`,
+            c.memo && `메모: ${c.memo}`,
+            `담당: ${c.salesperson || "⚠ 미배정 — 전시장에서 담당자를 정해 주세요"}`,
+            by && `넘긴 사람: ${by}`,
+          ]
+            .filter(Boolean)
+            .join("\n"),
+        },
+        { title: "대표번호 고객 보기", description: appUrl(`/admin/calls/main?branch=${encodeURIComponent(branch)}`) },
+      ],
+    });
+  } catch {
+    /* 알림 실패는 이관에 영향 없음 */
   }
 }
 

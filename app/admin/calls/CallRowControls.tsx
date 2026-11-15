@@ -68,6 +68,66 @@ export function CallGradeSelect({ id, grade }: { id: string; grade: string | nul
   );
 }
 
+// 대표번호 → 전시장으로 넘기기 (선택하면 그 전시장 잔디 토픽에 알림)
+export function CallBranchSelect({
+  id,
+  branch,
+  handedAt,
+  branches,
+}: {
+  id: string;
+  branch: string | null | undefined;
+  handedAt: string | null | undefined;
+  branches: string[];
+}) {
+  const [value, setValue] = useState(branch ?? "");
+  const [pending, start] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
+  const opts = value && !branches.includes(value) ? [value, ...branches] : branches;
+  return (
+    <div>
+      <select
+        value={value}
+        disabled={pending}
+        onChange={(e) => {
+          const next = e.target.value;
+          const prev = value;
+          if (next && !window.confirm(`이 문의를 [${next}]으로 넘길까요?\n해당 전시장 잔디 토픽으로 알림이 갑니다.`)) return;
+          setValue(next);
+          setErr(null);
+          start(async () => {
+            try {
+              await updateCallField(id, "branch", next);
+              setSent(!!next);
+            } catch (er) {
+              setValue(prev);
+              setErr(er instanceof Error ? er.message : "저장 실패");
+            }
+          });
+        }}
+        className={`w-full cursor-pointer rounded-md px-1.5 py-1 text-xs font-semibold outline-none ${
+          value ? "bg-indigo-600 text-white" : "border border-dashed border-gray-300 bg-white text-gray-400"
+        } ${pending ? "opacity-50" : ""}`}
+      >
+        <option value="">넘기지 않음</option>
+        {opts.map((b) => (
+          <option key={b} value={b}>
+            → {b}
+          </option>
+        ))}
+      </select>
+      {sent && <div className="mt-0.5 text-[10px] text-green-600">✓ 넘김 · 잔디 알림</div>}
+      {!sent && value && handedAt && (
+        <div className="mt-0.5 text-[10px] text-gray-400">
+          {new Date(handedAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })} 넘김
+        </div>
+      )}
+      {err && <div className="mt-0.5 text-[10px] leading-tight text-red-600">{err}</div>}
+    </div>
+  );
+}
+
 // 칸 단위 편집: blur / Enter 시 저장
 export function CallTextInput({
   id,
