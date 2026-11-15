@@ -84,6 +84,9 @@ const branchRank = (b: string) => {
   return i >= 0 ? i : 100;
 };
 
+// 운영하지 않는 전시장 (세움OS 목록에 남아 있어도 숨김)
+export const HIDDEN_BRANCHES = ["4전시장", "2전시장"];
+
 // 전체 전시장 목록: 세움OS 전시장 관리(showrooms) + 직원 소속 전시장
 // (소속 직원이 아직 없는 전시장도 포함 — 잔디 토픽 연결 · 대표번호 넘기기용)
 export async function getBranches(supabase: SupabaseClient): Promise<string[]> {
@@ -96,10 +99,12 @@ export async function getBranches(supabase: SupabaseClient): Promise<string[]> {
     }
   } else {
     // showrooms 테이블을 못 읽으면 세움OS 기본 전시장 목록 사용
-    for (const k of ["magok", "headquarters", "showroom1", "showroom3", "showroom4", "ganghwa", "gwangju", "andong"])
+    for (const k of ["magok", "headquarters", "showroom1", "showroom3", "ganghwa", "gwangju", "andong"])
       set.add(SHOWROOM_LABEL[k]);
   }
   for (const p of await getSalespeople(supabase)) if (p.branch?.trim()) set.add(p.branch.trim());
   set.add(SHOWROOM_LABEL.magok); // 서울마곡지사 (showrooms 에 아직 없을 수 있음)
-  return Array.from(set).sort((a, b) => branchRank(a) - branchRank(b) || a.localeCompare(b, "ko"));
+  return Array.from(set)
+    .filter((b) => !HIDDEN_BRANCHES.includes(b))
+    .sort((a, b) => branchRank(a) - branchRank(b) || a.localeCompare(b, "ko"));
 }
