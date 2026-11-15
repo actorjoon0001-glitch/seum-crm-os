@@ -15,7 +15,7 @@ import { buildPhoneIndex, otherRefs } from "@/lib/dedupe";
 import CallForm from "../CallForm";
 import CallsSetupNotice, { isMissingTable } from "../SetupNotice";
 import { CallStatusSelect, CallGradeSelect, CallBranchSelect, CallTextInput, CallDeleteButton } from "../CallRowControls";
-import { getSalespeople, groupByBranch, NO_BRANCH } from "@/lib/staff";
+import { getBranches } from "@/lib/staff";
 import { GRADES } from "@/lib/sales-db";
 import GradeLegend from "@/app/admin/logs/GradeLegend";
 
@@ -97,11 +97,7 @@ export default async function CallsPage({
   const { error: branchColErr } = await supabase.from(CALLS_TABLE).select("branch,handed_at").limit(1);
   const branchColMissing = !isMobile && !!branchColErr && /branch|handed_at/.test(branchColErr.message);
   // 넘길 전시장 목록 (세움OS 직원 소속 전시장)
-  const branches = isMobile
-    ? []
-    : groupByBranch(await getSalespeople(supabase))
-        .map((g) => g.branch)
-        .filter((b) => b !== NO_BRANCH);
+  const branches = isMobile ? [] : await getBranches(supabase);
   // 같은 연락처가 방문예약 · 다른 전화 · 고객DB 에도 있는지
   const phoneIdx = await buildPhoneIndex(supabase);
 
