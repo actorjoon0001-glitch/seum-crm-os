@@ -10,6 +10,8 @@ import {
 } from "@/lib/types";
 import { kstNowInputValue, kstShort } from "@/lib/kst";
 import AppNav from "@/app/AppNav";
+import DupBadge from "@/app/DupBadge";
+import { buildPhoneIndex, otherRefs } from "@/lib/dedupe";
 import CallForm from "../CallForm";
 import CallsSetupNotice, { isMissingTable } from "../SetupNotice";
 import { CallStatusSelect, CallTextInput, CallDeleteButton } from "../CallRowControls";
@@ -81,6 +83,8 @@ export default async function CallsPage({
     );
   }
   const rows = (data ?? []) as CallLead[];
+  // 같은 연락처가 방문예약 · 다른 전화 · 고객DB 에도 있는지
+  const phoneIdx = await buildPhoneIndex(supabase);
 
   // 영업사원 목록(필터 / 자동완성)
   const { data: spRows } = await supabase
@@ -205,6 +209,7 @@ export default async function CallsPage({
                           {r.phone}
                         </a>
                       )}
+                      <DupBadge refs={otherRefs(phoneIdx, r.phone, { kind: channel === "main" ? "main" : "mobile", id: r.id })} />
                     </td>
                     <td className="break-words px-2.5 py-2 text-gray-600">{r.region || "-"}</td>
                     <td className="whitespace-pre-wrap break-words px-2.5 py-2 text-gray-600">

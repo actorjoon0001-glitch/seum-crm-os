@@ -16,6 +16,8 @@ import { GRADES, STAGES, isOpenStage, stageColor, type SalesCustomer, type Sales
 import { getSalespeople, groupByBranch, NO_BRANCH } from "@/lib/staff";
 import { addDays, dateLabel, isDateStr, kstToday } from "@/lib/kst";
 import AppNav from "@/app/AppNav";
+import DupBadge from "@/app/DupBadge";
+import { buildPhoneIndex, otherRefs } from "@/lib/dedupe";
 import SetupSqlNotice from "@/app/SetupSqlNotice";
 import CustomerForm from "./CustomerForm";
 import { StageSelect, GradeSelect, NoteInput, NextDateInput, DeleteButton, ImportButton } from "./RowControls";
@@ -151,6 +153,7 @@ export default async function SalesDbPage({ searchParams }: { searchParams: Sear
   ]);
 
   const customers = (custRes.data ?? []) as SalesCustomer[];
+  const phoneIdx = await buildPhoneIndex(supabase);
   // 고객등급 컬럼이 아직 없으면 안내
   const { error: gradeColErr } = await supabase.from(CUST).select("grade").limit(1);
   const gradeColMissing = !!gradeColErr && /grade/.test(gradeColErr.message);
@@ -418,6 +421,9 @@ export default async function SalesDbPage({ searchParams }: { searchParams: Sear
                       </td>
                       <td className="whitespace-nowrap border border-gray-200 px-2 py-1.5 text-center">
                         {c.phone ? <a href={`tel:${c.phone}`}>{c.phone}</a> : "-"}
+                        <div>
+                          <DupBadge refs={otherRefs(phoneIdx, c.phone_digits || c.phone, { kind: "db", id: c.id })} />
+                        </div>
                       </td>
                       <td className="border border-gray-200 px-2 py-1.5 text-center">{c.region || "-"}</td>
                       <td className="whitespace-nowrap border border-gray-200 px-2 py-1.5 text-center">{c.inflow_type || "-"}</td>

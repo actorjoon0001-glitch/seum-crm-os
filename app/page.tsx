@@ -18,6 +18,8 @@ import { kstMonthStartISO, kstShort, kstToday, kstTodayStartISO } from "@/lib/ks
 import { isMissingTable as isMissingDbTable } from "@/lib/db-errors";
 import { vf, statusMeta } from "@/app/admin/visits/fields";
 import AppNav from "@/app/AppNav";
+import { isResultPending } from "@/lib/visit-pending";
+import { buildPhoneIndex } from "@/lib/dedupe";
 import VisitCalendar from "@/app/admin/visits/VisitCalendar";
 import { isMissingTable } from "@/app/admin/calls/SetupNotice";
 
@@ -56,6 +58,8 @@ export default async function Home({ searchParams }: { searchParams: { month?: s
     ? (searchParams.month as string)
     : today.slice(0, 7);
   let calRows: VisitReservation[] = [];
+  let pendingVisits = 0;
+  let duplicates = 0;
 
   let columns: Column[] = [];
   let journal: { writers: number; total: number; newDb: number; contracts: number; missing: boolean } | null = null;
@@ -204,10 +208,32 @@ export default async function Home({ searchParams }: { searchParams: { month?: s
       return (data ?? []) as VisitReservation[];
     };
 
-    [columns, journal, calRows] = await Promise.all([
+    // 방문 결과 미입력 (방문일 지남 + 상태 신규/방문예정)
+    const pendingCount = async () => {
+      const { data } = await supabase
+        .from(VISITS_TABLE)
+        .select("*")
+        .or("status.is.null,status.in.(new,scheduled)")
+        .limit(3000);
+      return ((data ?? []) as VisitReservation[]).filter((r) => isResultPending(r, today)).length;
+    };
+    // 3개 카테고리 사이 같은 연락처(중복) 수
+    const dupCount = async () => {
+      const idx = await buildPhoneIndex(supabase);
+      let n = 0;
+      for (const refs of Array.from(idx.values())) {
+        const lead = refs.filter((r) => r.kind !== "db").length;
+        if (lead > 1) n += lead - 1;
+      }
+      return n;
+    };
+
+    [columns, journal, calRows, pendingVisits, duplicates] = await Promise.all([
       Promise.all([visitColumn(), callColumn("main"), callColumn("mobile")]),
       journalStats(),
       calendarRows(),
+      pendingCount(),
+      dupCount(),
     ]);
   }
 
@@ -226,8 +252,29 @@ export default async function Home({ searchParams }: { searchParams: { month?: s
             <Total label="오늘 들어온 고객" value={sum("today")} accent />
             <Total label="이번 달 고객" value={sum("month")} />
             <Total label="신규 · 미처리" value={sum("pending")} />
-            <Total label="전체 고객 DB" value={sum("total")} />
+            <Total
+              label="전체 고객 DB"
+              value={sum("total")}
+              sub={duplicates > 0 ? `중복 제외 ${(sum("total") - duplicates).toLocaleString("ko-KR")}명 (같은 연락처 ${duplicates}건)` : undefined}
+            />
           </div>
+
+          {/* 방문 결과 미입력 알림 */}
+          {pendingVisits > 0 && (
+            <Link
+              href="/admin/visits?pending=1"
+              className="mt-3 flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-sm hover:bg-red-100"
+            >
+              <span className="text-lg">⏰</span>
+              <span>
+                <b>방문 결과 입력 필요 {pendingVisits}건</b>
+                <span className="ml-2 text-red-600">방문일이 지났는데 아직 &apos;신규 · 방문예정&apos; 상태인 예약이 있어요.</span>
+              </span>
+              <span className="ml-auto whitespace-nowrap rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white">
+                결과 입력하러 가기 →
+              </span>
+            </Link>
+          )}
 
           {/* 오늘 영업일지 현황 */}
           {journal && (
@@ -291,7 +338,7 @@ export default async function Home({ searchParams }: { searchParams: { month?: s
   );
 }
 
-function Total({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
+function Total({ label, value, accent, sub }: { label: string; value: number; accent?: boolean; sub?: string }) {
   return (
     <div
       className={`rounded-2xl border p-4 shadow-sm ${
@@ -303,6 +350,7 @@ function Total({ label, value, accent }: { label: string; value: number; accent?
         {value.toLocaleString("ko-KR")}
         <span className="ml-0.5 text-sm font-semibold text-gray-400">명</span>
       </div>
+      {sub && <div className="mt-0.5 text-xs text-violet-700">{sub}</div>}
     </div>
   );
 }

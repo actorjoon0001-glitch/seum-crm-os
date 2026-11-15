@@ -12,6 +12,10 @@ import VisitCalendar, { defaultVisitMonth } from "./VisitCalendar";
 import { vf, getPayload } from "./fields";
 import { StatusSelect, AssigneeInput, StaffMemoInput, DeleteButton } from "./RowControls";
 import { requireAuth } from "@/lib/require-auth";
+import { kstToday } from "@/lib/kst";
+import { isResultPending } from "@/lib/visit-pending";
+import { buildPhoneIndex, otherRefs } from "@/lib/dedupe";
+import DupBadge from "@/app/DupBadge";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -19,7 +23,7 @@ export const fetchCache = "force-no-store";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
-type Search = { q?: string; showroom?: string; view?: string; month?: string };
+type Search = { q?: string; showroom?: string; view?: string; month?: string; pending?: string };
 
 export default async function VisitsPage({
   searchParams,
@@ -50,7 +54,14 @@ export default async function VisitsPage({
   if (showroom) query = query.filter("payload->>showroom", "eq", showroom);
 
   const { data, error } = await query;
-  const rows = (data ?? []) as VisitReservation[];
+  const fetched = (data ?? []) as VisitReservation[];
+  const todayKst = kstToday();
+  // 방문 결과 미입력: 방문일이 지났는데 상태가 신규/방문예정
+  const pendingCount = fetched.filter((r) => isResultPending(r, todayKst)).length;
+  const pendingOnly = searchParams.pending === "1";
+  const rows = pendingOnly ? fetched.filter((r) => isResultPending(r, todayKst)) : fetched;
+  // 같은 연락처가 다른 곳(대표번호·영업폰·고객DB·다른 방문예약)에도 있는지
+  const phoneIdx = await buildPhoneIndex(supabase);
 
   // 전시장 목록(필터) — payload에서 추출
   const { data: allRows } = await supabase
@@ -65,8 +76,8 @@ export default async function VisitsPage({
   }
   const showrooms = Array.from(showroomSet).sort();
 
-  const today = new Date();
-  const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+  const today = new Date(`${todayKst}T00:00:00`);
+  const todayStr = todayKst;
   const month = /^\d{4}-\d{2}$/.test(searchParams.month || "")
     ? (searchParams.month as string)
     : defaultVisitMonth(rows, today);
@@ -74,6 +85,10 @@ export default async function VisitsPage({
   const toggleBase = new URLSearchParams();
   if (q) toggleBase.set("q", q);
   if (showroom) toggleBase.set("showroom", showroom);
+  const pendingHref = `/admin/visits?${new URLSearchParams({
+    ...Object.fromEntries(toggleBase),
+    ...(pendingOnly ? {} : { pending: "1" }),
+  })}`;
 
   return (
     <main className="mx-auto max-w-none px-4 py-6">
@@ -122,9 +137,20 @@ export default async function VisitsPage({
             <button className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white">
               검색
             </button>
-            {(q || showroom) && (
+            {(q || showroom || pendingOnly) && (
               <Link href="/admin/visits" className="text-sm text-gray-400 hover:text-gray-600">
                 초기화
+              </Link>
+            )}
+            {(pendingCount > 0 || pendingOnly) && (
+              <Link
+                href={pendingHref}
+                className={`ml-auto rounded-xl px-3 py-2 text-sm font-semibold ${
+                  pendingOnly ? "bg-red-600 text-white" : "bg-red-50 text-red-700 ring-1 ring-red-200 hover:bg-red-100"
+                }`}
+                title="방문일이 지났는데 상태가 신규/방문예정인 예약"
+              >
+                ⏰ 방문 결과 입력 필요 {pendingCount}건{pendingOnly ? " · 전체 보기" : ""}
               </Link>
             )}
           </form>
@@ -138,7 +164,7 @@ export default async function VisitsPage({
             />
           ) : rows.length === 0 ? (
             <div className="mt-6 rounded-2xl border border-dashed border-gray-300 bg-white p-12 text-center text-sm text-gray-400">
-              아직 등록된 방문예약이 없습니다.
+              {pendingOnly ? "방문 결과를 입력할 예약이 없습니다. 👍" : "아직 등록된 방문예약이 없습니다."}
             </div>
           ) : (
             <div className="mt-4 overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
@@ -180,6 +206,7 @@ export default async function VisitsPage({
                 <tbody className="divide-y divide-gray-50">
                   {rows.map((r) => {
                     const vdate = vf(r, ["visitDate"], "visit_date");
+                    const pending = isResultPending(r, todayKst);
                     const vtime = vf(r, ["visitTime"], "visit_time");
                     const showroom = showroomLabel(vf(r, ["showroom"]) || null);
                     const interest = vf(r, ["houseType", "interestType"], "interest_type");
@@ -198,7 +225,7 @@ export default async function VisitsPage({
                       return typeof v === "string" ? v : "";
                     })();
                     return (
-                      <tr key={r.id} className="hover:bg-gray-50/50">
+                      <tr key={r.id} className={pending ? "bg-red-50/60 hover:bg-red-50" : "hover:bg-gray-50/50"}>
                         <td className="px-2.5 py-2">
                           <Link
                             href={`/admin/visits/${r.id}`}
@@ -207,10 +234,19 @@ export default async function VisitsPage({
                             {name}
                           </Link>
                           {phone && <div className="text-xs text-gray-400">{phone}</div>}
+                          <DupBadge refs={otherRefs(phoneIdx, phone, { kind: "visit", id: r.id })} />
                         </td>
                         <td className="whitespace-nowrap px-2.5 py-2 text-xs text-gray-600">
                           {vdate || "-"}
                           {vtime ? ` ${vtime}` : ""}
+                          {pending && (
+                            <div
+                              className="mt-0.5 w-fit rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white"
+                              title="방문일이 지났습니다. 상태를 상담완료 · 노쇼 등으로 바꿔 주세요."
+                            >
+                              ⏰ 결과 미입력
+                            </div>
+                          )}
                         </td>
                         <td className="px-2.5 py-2 text-xs text-gray-500">
                           {showroom === "-" ? <span className="font-semibold text-amber-600">미선택</span> : showroom}
