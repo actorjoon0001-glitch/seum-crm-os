@@ -74,3 +74,32 @@ export function groupByBranch(people: Salesperson[]): { branch: string; people: 
     .sort((a, b) => rank(a[0]) - rank(b[0]) || a[0].localeCompare(b[0], "ko"))
     .map(([branch, people]) => ({ branch, people }));
 }
+
+// 전시장 정렬 순서 (서울마곡지사 → 본사 → 1~4전시장 → 강화 → 광주 → 안동 → 기타)
+const BRANCH_ORDER = ["magok", "headquarters", "showroom1", "showroom2", "showroom3", "showroom4", "ganghwa", "gwangju", "andong"].map(
+  (k) => SHOWROOM_LABEL[k]
+);
+const branchRank = (b: string) => {
+  const i = BRANCH_ORDER.indexOf(b);
+  return i >= 0 ? i : 100;
+};
+
+// 전체 전시장 목록: 세움OS 전시장 관리(showrooms) + 직원 소속 전시장
+// (소속 직원이 아직 없는 전시장도 포함 — 잔디 토픽 연결 · 대표번호 넘기기용)
+export async function getBranches(supabase: SupabaseClient): Promise<string[]> {
+  const set = new Set<string>();
+  const { data, error } = await supabase.from("showrooms").select("code,name").limit(200);
+  if (!error && data && data.length) {
+    for (const r of data as { code: string | null; name: string | null }[]) {
+      const label = (r.code && SHOWROOM_LABEL[r.code]) || r.name?.trim() || (r.code ? showroomLabel(r.code) : "");
+      if (label) set.add(label);
+    }
+  } else {
+    // showrooms 테이블을 못 읽으면 세움OS 기본 전시장 목록 사용
+    for (const k of ["magok", "headquarters", "showroom1", "showroom3", "showroom4", "ganghwa", "gwangju", "andong"])
+      set.add(SHOWROOM_LABEL[k]);
+  }
+  for (const p of await getSalespeople(supabase)) if (p.branch?.trim()) set.add(p.branch.trim());
+  set.add(SHOWROOM_LABEL.magok); // 서울마곡지사 (showrooms 에 아직 없을 수 있음)
+  return Array.from(set).sort((a, b) => branchRank(a) - branchRank(b) || a.localeCompare(b, "ko"));
+}

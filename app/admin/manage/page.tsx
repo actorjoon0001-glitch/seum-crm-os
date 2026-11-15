@@ -11,7 +11,7 @@ import { requireOwner } from "@/lib/require-auth";
 import { isOwnerEmployee } from "@/lib/auth";
 import { ACTIVITY_LABEL, ACTIVITY_TABLE } from "@/lib/activity";
 import { ACTIVITY_SQL } from "@/lib/activity-sql";
-import { getSalespeople, groupByBranch } from "@/lib/staff";
+import { getBranches, getSalespeople, groupByBranch } from "@/lib/staff";
 import { addDays, dateLabel, kstDayStartISO, kstToday } from "@/lib/kst";
 import AppNav from "@/app/AppNav";
 import SetupSqlNotice from "@/app/SetupSqlNotice";
@@ -129,6 +129,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Searc
     getJandiConfig(),
     getJandiState(),
   ]);
+  const allBranches = await getBranches(supabase);
   const urlState = (u: string | undefined): UrlState => ({ set: validJandiUrl(u), tail: (u ?? "").slice(-6) });
   const groups = groupByBranch(staff);
   const wroteToday = staff.filter((s) => cell.has(`${s.name}|${today}`)).length;
@@ -209,9 +210,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Searc
           <JandiSettings
             team={urlState(jandi.teamUrl)}
             admin={urlState(jandi.adminUrl)}
-            branches={groups
-              .filter((g) => g.branch !== "전시장 미지정")
-              .map((g) => ({ branch: g.branch, state: urlState(jandi.branchUrls?.[g.branch]) }))}
+            branches={allBranches.map((b) => ({ branch: b, state: urlState(jandi.branchUrls?.[b]) }))}
             briefHour={jandi.briefHour}
             briefMinute={jandi.briefMinute}
             toggles={{ brief: jandi.brief, newVisit: jandi.newVisit, newCall: jandi.newCall, admin: jandi.admin }}

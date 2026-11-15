@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { CALLS_TABLE, SALES_CUSTOMERS_TABLE, SALES_CUSTOMER_LOGS_TABLE, VISITS_TABLE } from "@/lib/supabase/server";
 import { showroomLabel, type CallLead, type VisitReservation } from "@/lib/types";
 import { isOpenStage, type SalesCustomer } from "@/lib/sales-db";
-import { getSalespeople, groupByBranch, NO_BRANCH } from "@/lib/staff";
+import { getBranches, getSalespeople, groupByBranch, NO_BRANCH } from "@/lib/staff";
 import { isResultPending } from "@/lib/visit-pending";
 import { vf } from "@/app/admin/visits/fields";
 import { addDays, dateLabel, kstDayStartISO, kstShort, kstToday } from "@/lib/kst";
@@ -134,7 +134,8 @@ export async function buildDailyBrief(supabase: SupabaseClient): Promise<BriefRe
   };
 
   const branches = new Map<string, JandiMessage>();
-  for (const g of groups) if (g.branch !== NO_BRANCH) branches.set(g.branch, build(g.branch));
+  // 소속 직원이 없는 전시장(예: 3전시장)도 그 전시장을 고른 방문예약이 브리핑되도록 전체 전시장 기준
+  for (const b of await getBranches(supabase)) branches.set(b, build(b));
 
   // 관리자 요약
   const acts = (actRes.data ?? []) as { kind: string; actor: string | null; detail: string | null }[];
