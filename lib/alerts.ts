@@ -134,7 +134,7 @@ export async function runTick(): Promise<{ ok: boolean; report: string[] }> {
 
 // 대표번호 문의 등록 즉시 알림 (등록 화면에서 호출)
 export async function notifyNewCall(
-  c: Pick<CallLead, "name" | "phone" | "inquiry" | "region" | "salesperson" | "called_at">,
+  c: Pick<CallLead, "name" | "phone" | "inquiry" | "region" | "salesperson" | "called_at"> & { grade?: string | null },
   by: string | null
 ) {
   try {

@@ -153,6 +153,7 @@ export interface CallLead {
   region: string | null;
   inquiry: string | null;
   status: string | null;
+  grade?: string | null; // 고객등급 A~E
   memo: string | null;
   created_at: string;
   updated_at: string | null;

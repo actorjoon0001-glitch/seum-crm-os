@@ -3,6 +3,8 @@
 import { useFormState, useFormStatus } from "react-dom";
 import { createCallLead, type CallFormResult } from "./actions";
 import type { CallChannel } from "@/lib/types";
+import { GRADES } from "@/lib/sales-db";
+import GradeLegend from "@/app/admin/logs/GradeLegend";
 
 const input =
   "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-seum";
@@ -85,14 +87,26 @@ export default function CallForm({
           <span className="text-xs text-gray-500">문의 내용</span>
           <input name="inquiry" placeholder="예: 30평 단층 견적 문의" className={input} />
         </label>
-        <div className="flex items-end">
-          <Submit />
-        </div>
-        <label className="col-span-2 md:col-span-4 xl:col-span-8">
+        <label>
+          <span className="text-xs text-gray-500">고객등급</span>
+          <select name="grade" defaultValue="" className={input}>
+            <option value="">선택</option>
+            {GRADES.map((g) => (
+              <option key={g.value} value={g.value}>
+                {g.value} · {g.desc}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="col-span-2 md:col-span-3 xl:col-span-7">
           <span className="text-xs text-gray-500">직원 메모</span>
           <input name="memo" placeholder="통화 내용, 다음 연락 일정 등" className={input} />
         </label>
+        <div className="flex items-end">
+          <Submit />
+        </div>
       </div>
+      <GradeLegend className="mt-2 rounded-md bg-gray-50 px-2 py-1.5" />
       {state?.error && <p className="mt-2 text-sm text-red-600">{state.error}</p>}
       {state?.ok && <p className="mt-2 text-sm text-green-600">✓ 등록되었습니다.</p>}
     </form>

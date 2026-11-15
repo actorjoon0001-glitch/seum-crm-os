@@ -10,6 +10,7 @@ export const CALL_LEADS_SQL = `create table if not exists public.call_leads (
   region       text,                                -- 지역 / 토지 위치
   inquiry      text,                                -- 문의 내용
   status       text not null default 'new',         -- 진행 상태
+  grade        text,                                -- 고객등급 A~E
   memo         text,                                -- 직원 메모
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()
@@ -20,4 +21,7 @@ create index if not exists call_leads_channel_called_at_idx
 
 -- RLS 켜고 정책 없음 = service_role(서버)만 접근, 외부 차단
 alter table public.call_leads enable row level security;
+
+-- 고객등급 컬럼 (기존 테이블에도 추가)
+alter table public.call_leads add column if not exists grade text;
 `;

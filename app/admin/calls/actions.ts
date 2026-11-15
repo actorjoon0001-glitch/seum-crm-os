@@ -7,6 +7,7 @@ import { logActivity } from "@/lib/activity";
 import { notifyNewCall } from "@/lib/alerts";
 import { isCallChannel, CALL_STATUSES } from "@/lib/types";
 import { kstInputToISO } from "@/lib/kst";
+import { isGrade } from "@/lib/sales-db";
 
 export interface CallFormResult {
   ok: boolean;
@@ -45,8 +46,9 @@ export async function createCallLead(
 
   const calledAt = kstInputToISO(get("called_at")) ?? new Date().toISOString();
 
+  const grade = isGrade(get("grade")) ? get("grade") : null;
   const supabase = createServiceClient();
-  const { error } = await supabase.from(CALLS_TABLE).insert({
+  const row: Record<string, unknown> = {
     channel,
     called_at: calledAt,
     name: name || null,
@@ -56,7 +58,10 @@ export async function createCallLead(
     inquiry: get("inquiry") || null,
     memo: get("memo") || null,
     status: "new",
-  });
+  };
+  let { error } = await supabase.from(CALLS_TABLE).insert(grade ? { ...row, grade } : row);
+  // 고객등급 컬럼을 아직 추가하지 않았으면 등급 없이 저장
+  if (error && grade && /grade/.test(error.message)) ({ error } = await supabase.from(CALLS_TABLE).insert(row));
   if (error) return { ok: false, error: `저장 실패: ${error.message}` };
 
   // 대표번호 문의는 잔디 영업팀 토픽으로 바로 알림
@@ -69,6 +74,7 @@ export async function createCallLead(
         region: get("region") || null,
         salesperson: salesperson || null,
         called_at: calledAt,
+        grade,
       },
       await currentUserName()
     );
@@ -78,7 +84,7 @@ export async function createCallLead(
   return { ok: true, seq: (prev?.seq ?? 0) + 1 };
 }
 
-const EDITABLE = ["status", "salesperson", "memo", "name", "phone", "region", "inquiry"] as const;
+const EDITABLE = ["status", "salesperson", "memo", "name", "phone", "region", "inquiry", "grade"] as const;
 type EditableField = (typeof EDITABLE)[number];
 
 // 목록에서 한 칸 수정 (상태 / 영업사원 / 메모 등)
@@ -88,13 +94,18 @@ export async function updateCallField(id: string, field: EditableField, value: s
   const v = value.trim();
   if (field === "status" && !CALL_STATUSES.some((s) => s.value === v))
     throw new Error("잘못된 상태입니다.");
+  if (field === "grade" && v && !isGrade(v)) throw new Error("잘못된 고객등급입니다.");
 
   const supabase = createServiceClient();
   const { error } = await supabase
     .from(CALLS_TABLE)
     .update({ [field]: v || null, updated_at: new Date().toISOString() })
     .eq("id", id);
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (field === "grade" && /grade/.test(error.message))
+      throw new Error("고객등급 칸이 없습니다. Supabase에서 고객등급 SQL을 먼저 실행해 주세요.");
+    throw new Error(error.message);
+  }
   refresh();
 }
 
