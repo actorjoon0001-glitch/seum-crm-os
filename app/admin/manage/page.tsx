@@ -147,7 +147,11 @@ export default async function ManagePage({ searchParams }: { searchParams: Searc
     { label: "고객등급 컬럼 (grade)", ok: !gradeColRes.error },
     { label: "활동 기록 테이블 (crm_activity_logs)", ok: !activityMissing },
     { label: "설정 테이블 (crm_settings)", ok: !settingsMissing },
-    { label: "잔디 영업팀 토픽 연결", ok: validJandiUrl(jandi.teamUrl) },
+    {
+      label: `잔디 전시장 토픽 연결 (${Object.values(jandi.branchUrls ?? {}).filter((u) => validJandiUrl(u)).length}곳)`,
+      ok: Object.values(jandi.branchUrls ?? {}).some((u) => validJandiUrl(u)) || validJandiUrl(jandi.teamUrl),
+    },
+    { label: "잔디 관리자 토픽 연결", ok: validJandiUrl(jandi.adminUrl) },
     {
       label: "잔디 자동 실행 (5분마다)",
       ok: !!jandiState.lastTickAt && Date.now() - Date.parse(jandiState.lastTickAt) < 30 * 60 * 1000,

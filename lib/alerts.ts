@@ -7,6 +7,7 @@ import { sendJandi, validJandiUrl, appUrl, type JandiMessage } from "@/lib/jandi
 import { buildDailyBrief, newVisitMessage, newCallMessage } from "@/lib/briefing";
 import { ACTIVITY_TABLE } from "@/lib/activity";
 import { kstToday } from "@/lib/kst";
+import { getSalespeople } from "@/lib/staff";
 import type { CallLead } from "@/lib/types";
 
 const KST = 9 * 3600 * 1000;
@@ -35,18 +36,36 @@ export async function sendDailyBrief(cfg: JandiConfig, report: string[]) {
   if (cfg.admin) await sendTo(cfg.adminUrl, brief.admin, report, "관리자 요약");
 }
 
+// 어떤 토픽이든 하나라도 연결됐는지
+function anyUrl(cfg: JandiConfig): boolean {
+  return (
+    validJandiUrl(cfg.teamUrl) ||
+    validJandiUrl(cfg.adminUrl) ||
+    Object.values(cfg.branchUrls ?? {}).some((u) => validJandiUrl(u))
+  );
+}
+
+// 전시장 토픽 → 없으면 전체 영업팀 토픽 → 없으면 관리자 토픽
+function routeUrl(cfg: JandiConfig, branch: string | null | undefined): { url?: string; label: string } {
+  const b = branch ? cfg.branchUrls?.[branch] : undefined;
+  if (validJandiUrl(b)) return { url: b, label: branch! };
+  if (validJandiUrl(cfg.teamUrl)) return { url: cfg.teamUrl, label: "영업팀" };
+  if (validJandiUrl(cfg.adminUrl)) return { url: cfg.adminUrl, label: "관리자(전시장 토픽 없음)" };
+  return { label: "-" };
+}
+
 export async function runTick(): Promise<{ ok: boolean; report: string[] }> {
   const report: string[] = [];
   const { value: cfg, missing } = await getJandiConfig();
   if (missing) return { ok: false, report: ["설정 테이블(crm_settings)이 없습니다."] };
-  if (!validJandiUrl(cfg.teamUrl) && !validJandiUrl(cfg.adminUrl)) return { ok: true, report: ["잔디 웹훅 미설정"] };
+  if (!anyUrl(cfg)) return { ok: true, report: ["잔디 웹훅 미설정"] };
 
   const { value: state } = await getJandiState();
   const next: JandiState = { ...state, lastTickAt: new Date().toISOString() };
   const supabase = createServiceClient();
 
   // 1) 새 방문예약 알림
-  if (cfg.newVisit && validJandiUrl(cfg.teamUrl)) {
+  if (cfg.newVisit) {
     if (!state.visitCursor) {
       next.visitCursor = new Date().toISOString(); // 처음 켰을 때 과거 예약을 한꺼번에 보내지 않음
     } else {
@@ -58,9 +77,10 @@ export async function runTick(): Promise<{ ok: boolean; report: string[] }> {
         .limit(20);
       for (const r of (data ?? []) as VisitReservation[]) {
         const { msg, branch } = newVisitMessage(r);
-        await sendTo(cfg.teamUrl, msg, report, "새 방문예약(영업팀)");
-        const bUrl = branch ? cfg.branchUrls?.[branch] : undefined;
-        if (bUrl) await sendTo(bUrl, msg, report, `새 방문예약(${branch})`);
+        // 고객이 고른 전시장 토픽으로. 전시장 토픽이 따로 있으면 전체 토픽에도 함께 올림
+        const route = routeUrl(cfg, branch);
+        await sendTo(route.url, msg, report, `새 방문예약(${route.label})`);
+        if (route.url !== cfg.teamUrl && validJandiUrl(cfg.teamUrl)) await sendTo(cfg.teamUrl, msg, report, "새 방문예약(영업팀)");
         next.visitCursor = r.created_at;
       }
     }
@@ -119,8 +139,17 @@ export async function notifyNewCall(
 ) {
   try {
     const { value: cfg, missing } = await getJandiConfig();
-    if (missing || !cfg.newCall || !validJandiUrl(cfg.teamUrl)) return;
-    await sendJandi(cfg.teamUrl, newCallMessage(c, by));
+    if (missing || !cfg.newCall || !anyUrl(cfg)) return;
+    // 담당 영업사원의 전시장 토픽으로 (담당 미배정이면 전체/관리자 토픽)
+    let branch: string | null = null;
+    if (c.salesperson) {
+      const staff = await getSalespeople(createServiceClient());
+      branch = staff.find((s) => s.name === c.salesperson)?.branch ?? null;
+    }
+    const route = routeUrl(cfg, branch);
+    const msg = newCallMessage(c, by);
+    if (route.url) await sendJandi(route.url, msg);
+    if (route.url !== cfg.teamUrl && validJandiUrl(cfg.teamUrl)) await sendJandi(cfg.teamUrl, msg);
   } catch {
     /* 알림 실패는 등록에 영향 없음 */
   }
