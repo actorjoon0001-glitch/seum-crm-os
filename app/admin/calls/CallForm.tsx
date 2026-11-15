@@ -26,10 +26,12 @@ export default function CallForm({
   channel,
   defaultCalledAt,
   salespeople,
+  branches = [],
 }: {
   channel: CallChannel;
   defaultCalledAt: string;
   salespeople: string[];
+  branches?: string[];
 }) {
   const [state, action] = useFormState<CallFormResult | null, FormData>(createCallLead, null);
   const isMobile = channel === "mobile";
@@ -98,7 +100,20 @@ export default function CallForm({
             ))}
           </select>
         </label>
-        <label className="col-span-2 md:col-span-3 xl:col-span-7">
+        {!isMobile && (
+          <label>
+            <span className="text-xs text-gray-500">넘길 전시장</span>
+            <select name="branch" defaultValue="" className={input}>
+              <option value="">넘기지 않음</option>
+              {branches.map((b) => (
+                <option key={b} value={b}>
+                  → {b}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <label className={`col-span-2 md:col-span-3 ${isMobile ? "xl:col-span-7" : "xl:col-span-6"}`}>
           <span className="text-xs text-gray-500">직원 메모</span>
           <input name="memo" placeholder="통화 내용, 다음 연락 일정 등" className={input} />
         </label>

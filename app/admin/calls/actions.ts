@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createServiceClient, CALLS_TABLE } from "@/lib/supabase/server";
 import { currentRole, currentUserName, isAuthed } from "@/lib/require-auth";
 import { logActivity } from "@/lib/activity";
-import { notifyNewCall } from "@/lib/alerts";
+import { notifyCallHandoff, notifyNewCall } from "@/lib/alerts";
 import { isCallChannel, CALL_STATUSES } from "@/lib/types";
 import { kstInputToISO } from "@/lib/kst";
 import { isGrade } from "@/lib/sales-db";
@@ -47,6 +47,7 @@ export async function createCallLead(
   const calledAt = kstInputToISO(get("called_at")) ?? new Date().toISOString();
 
   const grade = isGrade(get("grade")) ? get("grade") : null;
+  const branch = channel === "main" ? get("branch").slice(0, 40) || null : null;
   const supabase = createServiceClient();
   const row: Record<string, unknown> = {
     channel,
@@ -59,9 +60,16 @@ export async function createCallLead(
     memo: get("memo") || null,
     status: "new",
   };
-  let { error } = await supabase.from(CALLS_TABLE).insert(grade ? { ...row, grade } : row);
-  // 고객등급 컬럼을 아직 추가하지 않았으면 등급 없이 저장
-  if (error && grade && /grade/.test(error.message)) ({ error } = await supabase.from(CALLS_TABLE).insert(row));
+  const extra: Record<string, unknown> = {};
+  if (grade) extra.grade = grade;
+  if (branch) {
+    extra.branch = branch;
+    extra.handed_at = new Date().toISOString();
+  }
+  let { error } = await supabase.from(CALLS_TABLE).insert({ ...row, ...extra });
+  // 고객등급 · 전시장 컬럼을 아직 추가하지 않았으면 그 값 없이 저장
+  if (error && Object.keys(extra).length && /grade|branch|handed_at/.test(error.message))
+    ({ error } = await supabase.from(CALLS_TABLE).insert(row));
   if (error) return { ok: false, error: `저장 실패: ${error.message}` };
 
   // 대표번호 문의는 잔디 영업팀 토픽으로 바로 알림
@@ -75,6 +83,7 @@ export async function createCallLead(
         salesperson: salesperson || null,
         called_at: calledAt,
         grade,
+        branch,
       },
       await currentUserName()
     );
@@ -84,7 +93,7 @@ export async function createCallLead(
   return { ok: true, seq: (prev?.seq ?? 0) + 1 };
 }
 
-const EDITABLE = ["status", "salesperson", "memo", "name", "phone", "region", "inquiry", "grade"] as const;
+const EDITABLE = ["status", "salesperson", "memo", "name", "phone", "region", "inquiry", "grade", "branch"] as const;
 type EditableField = (typeof EDITABLE)[number];
 
 // 목록에서 한 칸 수정 (상태 / 영업사원 / 메모 등)
@@ -97,14 +106,20 @@ export async function updateCallField(id: string, field: EditableField, value: s
   if (field === "grade" && v && !isGrade(v)) throw new Error("잘못된 고객등급입니다.");
 
   const supabase = createServiceClient();
-  const { error } = await supabase
-    .from(CALLS_TABLE)
-    .update({ [field]: v || null, updated_at: new Date().toISOString() })
-    .eq("id", id);
+  const patch: Record<string, unknown> = { [field]: v || null, updated_at: new Date().toISOString() };
+  if (field === "branch") patch.handed_at = v ? new Date().toISOString() : null;
+  const { error } = await supabase.from(CALLS_TABLE).update(patch).eq("id", id);
   if (error) {
     if (field === "grade" && /grade/.test(error.message))
       throw new Error("고객등급 칸이 없습니다. Supabase에서 고객등급 SQL을 먼저 실행해 주세요.");
+    if (field === "branch" && /branch|handed_at/.test(error.message))
+      throw new Error("전시장 칸이 없습니다. Supabase에서 SQL을 먼저 실행해 주세요.");
     throw new Error(error.message);
+  }
+  // 전시장으로 넘기면 그 전시장 잔디 토픽에 알림
+  if (field === "branch" && v) {
+    const { data } = await supabase.from(CALLS_TABLE).select("*").eq("id", id).single();
+    if (data) await notifyCallHandoff(data, v, await currentUserName());
   }
   refresh();
 }

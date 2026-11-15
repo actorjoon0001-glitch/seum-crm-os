@@ -11,6 +11,8 @@ export const CALL_LEADS_SQL = `create table if not exists public.call_leads (
   inquiry      text,                                -- 문의 내용
   status       text not null default 'new',         -- 진행 상태
   grade        text,                                -- 고객등급 A~E
+  branch       text,                                -- 넘긴 전시장 (대표번호 → 전시장)
+  handed_at    timestamptz,                         -- 넘긴 시각
   memo         text,                                -- 직원 메모
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()
@@ -24,4 +26,6 @@ alter table public.call_leads enable row level security;
 
 -- 고객등급 컬럼 (기존 테이블에도 추가)
 alter table public.call_leads add column if not exists grade text;
+alter table public.call_leads add column if not exists branch text;
+alter table public.call_leads add column if not exists handed_at timestamptz;
 `;

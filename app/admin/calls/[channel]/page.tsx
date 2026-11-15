@@ -14,7 +14,8 @@ import DupBadge from "@/app/DupBadge";
 import { buildPhoneIndex, otherRefs } from "@/lib/dedupe";
 import CallForm from "../CallForm";
 import CallsSetupNotice, { isMissingTable } from "../SetupNotice";
-import { CallStatusSelect, CallGradeSelect, CallTextInput, CallDeleteButton } from "../CallRowControls";
+import { CallStatusSelect, CallGradeSelect, CallBranchSelect, CallTextInput, CallDeleteButton } from "../CallRowControls";
+import { getSalespeople, groupByBranch, NO_BRANCH } from "@/lib/staff";
 import { GRADES } from "@/lib/sales-db";
 import GradeLegend from "@/app/admin/logs/GradeLegend";
 
@@ -22,7 +23,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
 
-type Search = { q?: string; sp?: string; status?: string; grade?: string };
+type Search = { q?: string; sp?: string; status?: string; grade?: string; branch?: string };
 
 export default async function CallsPage({
   params,
@@ -57,6 +58,7 @@ export default async function CallsPage({
   const sp = (searchParams.sp ?? "").trim();
   const status = (searchParams.status ?? "").trim();
   const gradeFilter = (searchParams.grade ?? "").trim();
+  const branchFilter = !isMobile ? (searchParams.branch ?? "").trim() : "";
 
   let query = supabase
     .from(CALLS_TABLE)
@@ -73,6 +75,8 @@ export default async function CallsPage({
   if (sp) query = query.eq("salesperson", sp);
   if (status) query = query.eq("status", status);
   if (gradeFilter) query = query.eq("grade", gradeFilter);
+  if (branchFilter === "__none__") query = query.is("branch", null);
+  else if (branchFilter) query = query.eq("branch", branchFilter);
 
   const { data, error } = await query;
   if (error) {
@@ -90,6 +94,14 @@ export default async function CallsPage({
   // 고객등급 칸이 아직 없으면 안내
   const { error: gradeColErr } = await supabase.from(CALLS_TABLE).select("grade").limit(1);
   const gradeColMissing = !!gradeColErr && /grade/.test(gradeColErr.message);
+  const { error: branchColErr } = await supabase.from(CALLS_TABLE).select("branch,handed_at").limit(1);
+  const branchColMissing = !isMobile && !!branchColErr && /branch|handed_at/.test(branchColErr.message);
+  // 넘길 전시장 목록 (세움OS 직원 소속 전시장)
+  const branches = isMobile
+    ? []
+    : groupByBranch(await getSalespeople(supabase))
+        .map((g) => g.branch)
+        .filter((b) => b !== NO_BRANCH);
   // 같은 연락처가 방문예약 · 다른 전화 · 고객DB 에도 있는지
   const phoneIdx = await buildPhoneIndex(supabase);
 
@@ -116,7 +128,7 @@ export default async function CallsPage({
 
   return shell(
     <>
-      <CallForm channel={channel} defaultCalledAt={kstNowInputValue()} salespeople={salespeople} />
+      <CallForm channel={channel} defaultCalledAt={kstNowInputValue()} salespeople={salespeople} branches={branches} />
 
       {perSp.size > 0 && (
         <div className="flex flex-wrap gap-2">
@@ -134,11 +146,20 @@ export default async function CallsPage({
         </div>
       )}
 
-      {gradeColMissing && (
+      {(gradeColMissing || branchColMissing) && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          <p className="font-semibold">고객등급(A~E)을 쓰려면 Supabase SQL Editor에서 아래 한 줄을 한 번 실행해 주세요.</p>
-          <pre className="mt-2 select-all rounded-lg bg-white p-2 text-xs ring-1 ring-amber-200">
-            alter table public.call_leads add column if not exists grade text;
+          <p className="font-semibold">
+            {[gradeColMissing && "고객등급(A~E)", branchColMissing && "전시장 넘기기"].filter(Boolean).join(" · ")}을 쓰려면 Supabase SQL
+            Editor에서 아래를 한 번 실행해 주세요.
+          </p>
+          <pre className="mt-2 select-all whitespace-pre rounded-lg bg-white p-2 text-xs ring-1 ring-amber-200">
+            {[
+              gradeColMissing && "alter table public.call_leads add column if not exists grade text;",
+              branchColMissing && "alter table public.call_leads add column if not exists branch text;",
+              branchColMissing && "alter table public.call_leads add column if not exists handed_at timestamptz;",
+            ]
+              .filter(Boolean)
+              .join("\n")}
           </pre>
         </div>
       )}
@@ -186,8 +207,23 @@ export default async function CallsPage({
             </option>
           ))}
         </select>
+        {!isMobile && (
+          <select
+            name="branch"
+            defaultValue={branchFilter}
+            className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-seum"
+          >
+            <option value="">전체 (넘긴 전시장)</option>
+            <option value="__none__">아직 안 넘김</option>
+            {branches.map((b) => (
+              <option key={b} value={b}>
+                → {b}
+              </option>
+            ))}
+          </select>
+        )}
         <button className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white">검색</button>
-        {(q || sp || status || gradeFilter) && (
+        {(q || sp || status || gradeFilter || branchFilter) && (
           <Link href={base} className="text-sm text-gray-400 hover:text-gray-600">
             초기화
           </Link>
@@ -197,7 +233,7 @@ export default async function CallsPage({
 
       {rows.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-12 text-center text-sm text-gray-400">
-          {q || sp || status || gradeFilter ? "조건에 맞는 고객이 없습니다." : "아직 등록된 전화 고객이 없습니다. 위에서 1건씩 등록하세요."}
+          {q || sp || status || gradeFilter || branchFilter ? "조건에 맞는 고객이 없습니다." : "아직 등록된 전화 고객이 없습니다. 위에서 1건씩 등록하세요."}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
@@ -206,11 +242,12 @@ export default async function CallsPage({
               <col className="w-[8%]" />{/* 통화일시 */}
               <col className="w-[11%]" />{/* 고객 */}
               <col className="w-[10%]" />{/* 지역 */}
-              <col className="w-[19%]" />{/* 문의 내용 */}
+              <col className={isMobile ? "w-[19%]" : "w-[16%]"} />{/* 문의 내용 */}
               <col className="w-[8%]" />{/* 상태 */}
               <col className="w-[5%]" />{/* 고객등급 */}
+              {!isMobile && <col className="w-[9%]" />}{/* 넘길 전시장 */}
               <col className="w-[9%]" />{/* 영업사원 */}
-              <col className="w-[24%]" />{/* 직원 메모 */}
+              <col className={isMobile ? "w-[24%]" : "w-[18%]"} />{/* 직원 메모 */}
               <col className="w-[6%]" />{/* 삭제 */}
             </colgroup>
             <thead className="border-b border-gray-100 bg-gray-50 text-gray-500">
@@ -221,6 +258,7 @@ export default async function CallsPage({
                 <th className="px-2.5 py-2 font-medium">문의 내용</th>
                 <th className="px-2.5 py-2 font-medium">상태</th>
                 <th className="px-2.5 py-2 font-medium">고객등급</th>
+                {!isMobile && <th className="px-2.5 py-2 font-medium">넘길 전시장</th>}
                 <th className="px-2.5 py-2 font-medium">{isMobile ? "영업사원" : "담당 영업사원"}</th>
                 <th className="px-2.5 py-2 font-medium">직원 메모</th>
                 <th className="px-2.5 py-2 font-medium"></th>
@@ -251,6 +289,11 @@ export default async function CallsPage({
                     <td className="px-1.5 py-2">
                       <CallGradeSelect id={r.id} grade={r.grade} />
                     </td>
+                    {!isMobile && (
+                      <td className="px-1.5 py-2">
+                        <CallBranchSelect id={r.id} branch={r.branch} handedAt={r.handed_at} branches={branches} />
+                      </td>
+                    )}
                     <td className="px-2.5 py-2">
                       <CallTextInput id={r.id} field="salesperson" value={r.salesperson} placeholder="영업사원" />
                     </td>
