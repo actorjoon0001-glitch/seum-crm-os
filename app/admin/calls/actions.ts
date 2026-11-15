@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createServiceClient, CALLS_TABLE } from "@/lib/supabase/server";
 import { currentRole, currentUserName, isAuthed } from "@/lib/require-auth";
 import { logActivity } from "@/lib/activity";
+import { notifyNewCall } from "@/lib/alerts";
 import { isCallChannel, CALL_STATUSES } from "@/lib/types";
 import { kstInputToISO } from "@/lib/kst";
 
@@ -57,6 +58,21 @@ export async function createCallLead(
     status: "new",
   });
   if (error) return { ok: false, error: `저장 실패: ${error.message}` };
+
+  // 대표번호 문의는 잔디 영업팀 토픽으로 바로 알림
+  if (channel === "main") {
+    await notifyNewCall(
+      {
+        name: name || null,
+        phone: phone || null,
+        inquiry: get("inquiry") || null,
+        region: get("region") || null,
+        salesperson: salesperson || null,
+        called_at: calledAt,
+      },
+      await currentUserName()
+    );
+  }
 
   refresh(channel);
   return { ok: true, seq: (prev?.seq ?? 0) + 1 };

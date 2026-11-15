@@ -15,6 +15,10 @@ import { getSalespeople, groupByBranch } from "@/lib/staff";
 import { addDays, dateLabel, kstDayStartISO, kstToday } from "@/lib/kst";
 import AppNav from "@/app/AppNav";
 import SetupSqlNotice from "@/app/SetupSqlNotice";
+import JandiSettings, { type UrlState } from "./JandiSettings";
+import { getJandiConfig, getJandiState } from "@/lib/settings";
+import { SETTINGS_SQL } from "@/lib/settings-sql";
+import { validJandiUrl } from "@/lib/jandi";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -121,6 +125,11 @@ export default async function ManagePage({ searchParams }: { searchParams: Searc
     cell.set(k, (cell.get(k) ?? 0) + 1);
   }
   const staff = (await getSalespeople(supabase)).filter((s) => s.fromStaff);
+  const [{ value: jandi, missing: settingsMissing }, { value: jandiState }] = await Promise.all([
+    getJandiConfig(),
+    getJandiState(),
+  ]);
+  const urlState = (u: string | undefined): UrlState => ({ set: validJandiUrl(u), tail: (u ?? "").slice(-6) });
   const groups = groupByBranch(staff);
   const wroteToday = staff.filter((s) => cell.has(`${s.name}|${today}`)).length;
 
@@ -137,6 +146,13 @@ export default async function ManagePage({ searchParams }: { searchParams: Searc
     { label: "고객 DB 테이블 (sales_customers)", ok: !customers.error },
     { label: "고객등급 컬럼 (grade)", ok: !gradeColRes.error },
     { label: "활동 기록 테이블 (crm_activity_logs)", ok: !activityMissing },
+    { label: "설정 테이블 (crm_settings)", ok: !settingsMissing },
+    { label: "잔디 영업팀 토픽 연결", ok: validJandiUrl(jandi.teamUrl) },
+    {
+      label: "잔디 자동 실행 (5분마다)",
+      ok: !!jandiState.lastTickAt && Date.now() - Date.parse(jandiState.lastTickAt) < 30 * 60 * 1000,
+      note: jandiState.lastTickAt ? undefined : "아직 실행 기록 없음 — 배포 후 웹훅을 저장하면 5분 안에 시작됩니다",
+    },
   ];
 
   const qs = (p: Record<string, string>) => {
@@ -169,6 +185,37 @@ export default async function ManagePage({ searchParams }: { searchParams: Searc
         <Tile label="오늘 영업일지 작성" value={`${wroteToday} / ${staff.length}명`} sub={`미작성 ${staff.length - wroteToday}명`} />
         <Tile label="고객 DB" value={`${customers.count ?? 0}명`} sub={`일지 기록 ${logsTotal.count ?? 0}건`} />
       </div>
+
+      {/* 잔디 알림 */}
+      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <h2 className="text-sm font-bold">🔔 잔디 알림</h2>
+        <p className="mb-3 text-xs text-gray-500">
+          잔디 토픽 → 우측 상단 커넥트(🔌) → Incoming Webhook → 연동하기 에서 받은 URL을 넣으세요. URL은 관리자만 볼 수 있게
+          저장됩니다.
+        </p>
+        {settingsMissing ? (
+          <SetupSqlNotice
+            title="설정 테이블"
+            table="crm_settings"
+            sql={SETTINGS_SQL}
+            message="잔디 알림 설정을 저장할 곳이 필요합니다."
+            after="잔디 웹훅 URL을 입력할 수 있습니다."
+          />
+        ) : (
+          <JandiSettings
+            team={urlState(jandi.teamUrl)}
+            admin={urlState(jandi.adminUrl)}
+            branches={groups
+              .filter((g) => g.branch !== "전시장 미지정")
+              .map((g) => ({ branch: g.branch, state: urlState(jandi.branchUrls?.[g.branch]) }))}
+            briefHour={jandi.briefHour}
+            briefMinute={jandi.briefMinute}
+            toggles={{ brief: jandi.brief, newVisit: jandi.newVisit, newCall: jandi.newCall, admin: jandi.admin }}
+            lastTickAt={jandiState.lastTickAt}
+            lastBriefDate={jandiState.lastBriefDate}
+          />
+        )}
+      </section>
 
       {/* 최근 7일 일지 작성표 */}
       <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
