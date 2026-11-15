@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { VisitReservation } from "@/lib/types";
+import { showroomLabel } from "@/lib/types";
+import { vf } from "./fields";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -131,17 +133,34 @@ export default function VisitCalendar({
                 {d}
               </div>
               <div className="mt-1 space-y-1">
-                {visits.map((v) => (
-                  <Link
-                    key={v.id}
-                    href={`/admin/visits/${v.id}`}
-                    className="block truncate rounded bg-seum-light px-1.5 py-0.5 text-[11px] font-medium text-seum-dark hover:bg-seum hover:text-white"
-                    title={`${v.visit_time || ""} ${v.name || ""} (${v.visitor_count || "-"})`}
-                  >
-                    {v.visit_time ? `${v.visit_time} ` : ""}
-                    {v.name || "(이름없음)"}
-                  </Link>
-                ))}
+                {visits.map((v) => {
+                  // 고객이 예약폼에서 선택한 전시장 (없으면 '전시장 미선택')
+                  const room = vf(v, ["showroom"]);
+                  const roomName = room ? showroomLabel(room) : null;
+                  const name = vf(v, ["name"], "name") || "(이름없음)";
+                  return (
+                    <Link
+                      key={v.id}
+                      href={`/admin/visits/${v.id}`}
+                      className="group block rounded bg-seum-light px-1.5 py-0.5 text-[11px] font-medium leading-tight text-seum-dark hover:bg-seum hover:text-white"
+                      title={`${v.visit_time || ""} ${name} · ${roomName ?? "전시장 미선택"} (${v.visitor_count || "-"}명)`}
+                    >
+                      <span className="block truncate">
+                        {v.visit_time ? `${v.visit_time} ` : ""}
+                        {name}
+                      </span>
+                      <span
+                        className={`block truncate text-[10px] ${
+                          roomName
+                            ? "text-seum-dark/70 group-hover:text-white/80"
+                            : "font-semibold text-amber-600 group-hover:text-amber-100"
+                        }`}
+                      >
+                        {roomName ? `🏢 ${roomName}` : "⚠ 전시장 미선택"}
+                      </span>
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           );

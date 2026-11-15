@@ -213,7 +213,7 @@ export default async function VisitsPage({
                           {vtime ? ` ${vtime}` : ""}
                         </td>
                         <td className="px-2.5 py-2 text-xs text-gray-500">
-                          {showroom === "-" ? "-" : showroom}
+                          {showroom === "-" ? <span className="font-semibold text-amber-600">미선택</span> : showroom}
                         </td>
                         <td className="px-2.5 py-2 text-xs text-gray-600">
                           {interest || "-"}
