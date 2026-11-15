@@ -14,6 +14,7 @@ import { StatusSelect, AssigneeInput, StaffMemoInput, DeleteButton } from "./Row
 import { requireAuth } from "@/lib/require-auth";
 import { kstToday } from "@/lib/kst";
 import { isResultPending } from "@/lib/visit-pending";
+import { getVisitPendingSince } from "@/lib/visit-pending-since";
 import { buildPhoneIndex, otherRefs } from "@/lib/dedupe";
 import DupBadge from "@/app/DupBadge";
 
@@ -56,10 +57,11 @@ export default async function VisitsPage({
   const { data, error } = await query;
   const fetched = (data ?? []) as VisitReservation[];
   const todayKst = kstToday();
+  const { since: pendingSince } = await getVisitPendingSince(supabase);
   // 방문 결과 미입력: 방문일이 지났는데 상태가 신규/방문예정
-  const pendingCount = fetched.filter((r) => isResultPending(r, todayKst)).length;
+  const pendingCount = fetched.filter((r) => isResultPending(r, todayKst, pendingSince)).length;
   const pendingOnly = searchParams.pending === "1";
-  const rows = pendingOnly ? fetched.filter((r) => isResultPending(r, todayKst)) : fetched;
+  const rows = pendingOnly ? fetched.filter((r) => isResultPending(r, todayKst, pendingSince)) : fetched;
   // 같은 연락처가 다른 곳(대표번호·영업폰·고객DB·다른 방문예약)에도 있는지
   const phoneIdx = await buildPhoneIndex(supabase);
 
@@ -161,6 +163,7 @@ export default async function VisitsPage({
               month={month}
               todayStr={todayStr}
               params={{ q, showroom }}
+              pendingSince={pendingSince}
             />
           ) : rows.length === 0 ? (
             <div className="mt-6 rounded-2xl border border-dashed border-gray-300 bg-white p-12 text-center text-sm text-gray-400">
@@ -206,7 +209,7 @@ export default async function VisitsPage({
                 <tbody className="divide-y divide-gray-50">
                   {rows.map((r) => {
                     const vdate = vf(r, ["visitDate"], "visit_date");
-                    const pending = isResultPending(r, todayKst);
+                    const pending = isResultPending(r, todayKst, pendingSince);
                     const vtime = vf(r, ["visitTime"], "visit_time");
                     const showroom = showroomLabel(vf(r, ["showroom"]) || null);
                     const interest = vf(r, ["houseType", "interestType"], "interest_type");

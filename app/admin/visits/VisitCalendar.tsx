@@ -36,6 +36,7 @@ export default function VisitCalendar({
   params,
   basePath,
   compact,
+  pendingSince,
 }: {
   rows: VisitReservation[];
   month: string; // YYYY-MM
@@ -43,6 +44,7 @@ export default function VisitCalendar({
   params: Record<string, string>;
   basePath?: string;
   compact?: boolean; // 홈 대시보드용: 셀 높이 축소
+  pendingSince?: string | null; // 결과 미입력 추적 시작 기준
 }) {
   const [year, m] = month.split("-").map(Number); // m: 1-indexed
   const monthIdx = m - 1;
@@ -139,7 +141,7 @@ export default function VisitCalendar({
                   const room = vf(v, ["showroom"]);
                   const roomName = room ? showroomLabel(room) : null;
                   const name = vf(v, ["name"], "name") || "(이름없음)";
-                  const pending = isResultPending(v, todayStr);
+                  const pending = isResultPending(v, todayStr, pendingSince);
                   return (
                     <Link
                       key={v.id}

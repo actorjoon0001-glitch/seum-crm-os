@@ -5,6 +5,7 @@ import { showroomLabel, type CallLead, type VisitReservation } from "@/lib/types
 import { isOpenStage, type SalesCustomer } from "@/lib/sales-db";
 import { getBranches, getSalespeople, groupByBranch, NO_BRANCH } from "@/lib/staff";
 import { isResultPending } from "@/lib/visit-pending";
+import { getVisitPendingSince } from "@/lib/visit-pending-since";
 import { vf } from "@/app/admin/visits/fields";
 import { addDays, dateLabel, kstDayStartISO, kstShort, kstToday } from "@/lib/kst";
 import { ACTIVITY_TABLE } from "@/lib/activity";
@@ -69,7 +70,8 @@ export async function buildDailyBrief(supabase: SupabaseClient): Promise<BriefRe
   const todayVisits = ((todayVisitsRes.data ?? []) as VisitReservation[]).sort((a, b) =>
     (vf(a, ["visitTime"], "visit_time") || "").localeCompare(vf(b, ["visitTime"], "visit_time") || "")
   );
-  const pending = ((openVisitsRes.data ?? []) as VisitReservation[]).filter((r) => isResultPending(r, today));
+  const { since: pendingSince } = await getVisitPendingSince(supabase);
+  const pending = ((openVisitsRes.data ?? []) as VisitReservation[]).filter((r) => isResultPending(r, today, pendingSince));
   const followUps = ((custRes.data ?? []) as SalesCustomer[]).filter((c) => isOpenStage(c.stage) && c.next_action_date);
   const wrote = new Set(((ylogRes.data ?? []) as { assignee: string }[]).map((r) => r.assignee));
 

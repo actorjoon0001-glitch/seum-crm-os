@@ -5,6 +5,7 @@ import { isOwner } from "@/lib/require-auth";
 import { DEFAULT_JANDI, getJandiConfig, setSetting, type JandiConfig } from "@/lib/settings";
 import { appUrl, sendJandi, validJandiUrl } from "@/lib/jandi";
 import { sendDailyBrief } from "@/lib/alerts";
+import { createServiceClient, VISITS_TABLE } from "@/lib/supabase/server";
 
 export interface ActionResult {
   ok: boolean;
@@ -89,4 +90,27 @@ export async function sendBriefNow(): Promise<ActionResult> {
   const report: string[] = [];
   await sendDailyBrief({ ...cfg, brief: true, admin: true }, report);
   return { ok: true, message: report.join(" · ") || "보낼 대상이 없습니다." };
+}
+
+// 방문 결과 미입력 추적 시작 기준 변경 (선택한 예약의 접수 시각부터 / 비우면 전체)
+export async function setPendingSince(formData: FormData): Promise<void> {
+  if (!(await isOwner())) return;
+  const id = String(formData.get("visitId") ?? "").trim();
+  if (!id) {
+    await setSetting("visit_pending", { since: null, label: "전체 예약", bootstrapped: true });
+  } else {
+    const { data } = await createServiceClient()
+      .from(VISITS_TABLE)
+      .select("name,payload,submitted_at,created_at")
+      .eq("id", id)
+      .maybeSingle();
+    if (!data) return;
+    const since = data.submitted_at || data.created_at;
+    const p = typeof data.payload === "object" && data.payload ? (data.payload as Record<string, unknown>) : {};
+    const name = data.name || (typeof p.name === "string" ? p.name : "") || "(이름없음)";
+    await setSetting("visit_pending", { since, label: `${name} 예약 접수 시각부터`, bootstrapped: true });
+  }
+  revalidatePath("/");
+  revalidatePath("/admin/visits");
+  revalidatePath("/admin/manage");
 }

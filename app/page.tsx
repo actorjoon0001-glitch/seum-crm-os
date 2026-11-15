@@ -19,6 +19,7 @@ import { isMissingTable as isMissingDbTable } from "@/lib/db-errors";
 import { vf, statusMeta } from "@/app/admin/visits/fields";
 import AppNav from "@/app/AppNav";
 import { isResultPending } from "@/lib/visit-pending";
+import { getVisitPendingSince } from "@/lib/visit-pending-since";
 import { buildPhoneIndex } from "@/lib/dedupe";
 import VisitCalendar from "@/app/admin/visits/VisitCalendar";
 import { isMissingTable } from "@/app/admin/calls/SetupNotice";
@@ -59,6 +60,7 @@ export default async function Home({ searchParams }: { searchParams: { month?: s
     : today.slice(0, 7);
   let calRows: VisitReservation[] = [];
   let pendingVisits = 0;
+  let pendingSince: string | null = null;
   let duplicates = 0;
 
   let columns: Column[] = [];
@@ -209,13 +211,14 @@ export default async function Home({ searchParams }: { searchParams: { month?: s
     };
 
     // 방문 결과 미입력 (방문일 지남 + 상태 신규/방문예정)
+    pendingSince = (await getVisitPendingSince(supabase)).since;
     const pendingCount = async () => {
       const { data } = await supabase
         .from(VISITS_TABLE)
         .select("*")
         .or("status.is.null,status.in.(new,scheduled)")
         .limit(3000);
-      return ((data ?? []) as VisitReservation[]).filter((r) => isResultPending(r, today)).length;
+      return ((data ?? []) as VisitReservation[]).filter((r) => isResultPending(r, today, pendingSince)).length;
     };
     // 3개 카테고리 사이 같은 연락처(중복) 수
     const dupCount = async () => {
@@ -323,7 +326,15 @@ export default async function Home({ searchParams }: { searchParams: { month?: s
                 크게 보기 · 전시장 필터 →
               </Link>
             </div>
-            <VisitCalendar rows={calRows} month={calMonth} todayStr={today} params={{}} basePath="/" compact />
+            <VisitCalendar
+              rows={calRows}
+              month={calMonth}
+              todayStr={today}
+              params={{}}
+              basePath="/"
+              compact
+              pendingSince={pendingSince}
+            />
           </section>
 
           {/* 3개 카테고리 한눈에 */}
