@@ -16,6 +16,8 @@ import { addDays, dateLabel, kstDayStartISO, kstToday } from "@/lib/kst";
 import AppNav from "@/app/AppNav";
 import SetupSqlNotice from "@/app/SetupSqlNotice";
 import JandiSettings, { type UrlState } from "./JandiSettings";
+import { setPendingSince } from "./actions";
+import { getVisitPendingSince } from "@/lib/visit-pending-since";
 import { getJandiConfig, getJandiState } from "@/lib/settings";
 import { SETTINGS_SQL } from "@/lib/settings-sql";
 import { validJandiUrl } from "@/lib/jandi";
@@ -130,6 +132,31 @@ export default async function ManagePage({ searchParams }: { searchParams: Searc
     getJandiState(),
   ]);
   const allBranches = await getBranches(supabase);
+  const pendingSetting = await getVisitPendingSince(supabase);
+  const { data: recentVisits } = await supabase
+    .from(VISITS_TABLE)
+    .select("id,name,payload,submitted_at,created_at,visit_date")
+    .order("submitted_at", { ascending: false, nullsFirst: false })
+    .limit(60);
+  const visitOpts = ((recentVisits ?? []) as {
+    id: string;
+    name: string | null;
+    payload: unknown;
+    submitted_at: string | null;
+    created_at: string | null;
+    visit_date: string | null;
+  }[]).map((v) => {
+    const p = typeof v.payload === "object" && v.payload ? (v.payload as Record<string, unknown>) : {};
+    const at = v.submitted_at || v.created_at;
+    return {
+      id: v.id,
+      at,
+      label: `${v.name || (typeof p.name === "string" ? p.name : "") || "(이름없음)"} · ${
+        at ? new Date(at).toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul", month: "2-digit", day: "2-digit" }) : "-"
+      } 접수${v.visit_date ? ` · 방문 ${v.visit_date}` : ""}`,
+    };
+  });
+  const currentVisitId = visitOpts.find((v) => v.at && pendingSetting.since && Date.parse(v.at) === Date.parse(pendingSetting.since))?.id ?? "";
   const urlState = (u: string | undefined): UrlState => ({ set: validJandiUrl(u), tail: (u ?? "").slice(-6) });
   const groups = groupByBranch(staff);
   const wroteToday = staff.filter((s) => cell.has(`${s.name}|${today}`)).length;
@@ -218,6 +245,33 @@ export default async function ManagePage({ searchParams }: { searchParams: Searc
             lastBriefDate={jandiState.lastBriefDate}
           />
         )}
+      </section>
+
+      {/* 방문 결과 미입력 추적 기준 */}
+      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <h2 className="text-sm font-bold">⏰ 방문 결과 미입력 추적 기준</h2>
+        <p className="mt-0.5 text-xs text-gray-500">
+          이 예약보다 먼저 접수된 과거 예약은 &apos;결과 미입력&apos; 표시 · 알림에서 제외합니다. 현재:{" "}
+          <b className="text-gray-800">
+            {pendingSetting.since
+              ? `${pendingSetting.label ?? ""} (${new Date(pendingSetting.since).toLocaleString("ko-KR", {
+                  timeZone: "Asia/Seoul",
+                  hour12: false,
+                })})`
+              : "전체 예약 (기준 없음)"}
+          </b>
+        </p>
+        <form action={setPendingSince} className="mt-2 flex flex-wrap items-center gap-2">
+          <select name="visitId" defaultValue={currentVisitId} className="max-w-md rounded-lg border border-gray-300 px-2 py-1.5 text-sm">
+            <option value="">전체 예약 (기준 없음)</option>
+            {visitOpts.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.label}
+              </option>
+            ))}
+          </select>
+          <button className="rounded-lg bg-gray-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-seum">이 예약부터 추적</button>
+        </form>
       </section>
 
       {/* 최근 7일 일지 작성표 */}
