@@ -38,10 +38,18 @@ export async function saveJandi(_prev: ActionResult | null, formData: FormData):
     newCall: formData.get("newCall") != null,
     admin: formData.get("admin") != null,
   };
-  for (const branch of formData.getAll("branch").map(String)) {
-    const v = url(`branch:${branch}`, cur.branchUrls?.[branch] ?? "");
+  // 전시장 칸: 이름은 값(branchName_i)으로, URL 은 branchUrl_i 로 받음
+  // (폼 필드 '이름'에 한글을 쓰면 전송 중 깨지므로 번호로 구분)
+  const shown = new Set<string>();
+  for (let i = 0; formData.has(`branchName_${i}`); i++) {
+    const branch = get(`branchName_${i}`);
+    if (!branch) continue;
+    shown.add(branch);
+    const v = url(`branchUrl_${i}`, cur.branchUrls?.[branch] ?? "");
     if (v) next.branchUrls[branch] = v;
   }
+  // 이번 화면에 없는 전시장(직원 소속 변경 등)의 기존 URL 은 유지
+  for (const [b, u] of Object.entries(cur.branchUrls ?? {})) if (!shown.has(b)) next.branchUrls[b] = u;
 
   const bad = [next.teamUrl, next.adminUrl, ...Object.values(next.branchUrls)].filter((u) => u && !validJandiUrl(u));
   if (bad.length) return { ok: false, error: "잔디 웹훅 URL은 https://wh.jandi.com/connect-api/webhook/ 으로 시작해야 합니다." };

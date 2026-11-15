@@ -39,7 +39,19 @@ function TestButton({ target, disabled }: { target: string; disabled: boolean })
   );
 }
 
-function UrlRow({ name, label, hint, state }: { name: string; label: string; hint?: string; state: UrlState }) {
+function UrlRow({
+  name,
+  label,
+  hint,
+  state,
+  target,
+}: {
+  name: string;
+  label: string;
+  hint?: string;
+  state: UrlState;
+  target: string; // 테스트 대상: team / admin / 전시장 이름
+}) {
   return (
     <div className="grid gap-1 sm:grid-cols-[160px_1fr_auto] sm:items-center sm:gap-2">
       <div className="text-sm font-semibold text-gray-700">
@@ -60,7 +72,7 @@ function UrlRow({ name, label, hint, state }: { name: string; label: string; hin
           </label>
         )}
       </div>
-      <TestButton target={name === "teamUrl" ? "team" : name === "adminUrl" ? "admin" : name.replace(/^branch:/, "")} disabled={!state.set} />
+      <TestButton target={target} disabled={!state.set} />
     </div>
   );
 }
@@ -97,18 +109,18 @@ export default function JandiSettings({
           문의(담당 영업사원 소속)가 해당 토픽으로 갑니다.
         </p>
         <div className="space-y-2">
-          {branches.map((b) => (
+          {branches.map((b, i) => (
             <div key={b.branch}>
-              <input type="hidden" name="branch" value={b.branch} />
-              <UrlRow name={`branch:${b.branch}`} label={b.branch} state={b.state} />
+              <input type="hidden" name={`branchName_${i}`} value={b.branch} />
+              <UrlRow name={`branchUrl_${i}`} label={b.branch} state={b.state} target={b.branch} />
             </div>
           ))}
         </div>
       </div>
 
       <div className="space-y-2 rounded-lg border border-gray-200 p-3">
-        <UrlRow name="adminUrl" label="관리자 토픽" hint="관리자 요약 · 로그인 실패 경고 · 전시장 미선택 예약" state={admin} />
-        <UrlRow name="teamUrl" label="전체 영업팀 토픽 (선택)" hint="모든 전시장 알림을 한 곳에서도 받을 때만" state={team} />
+        <UrlRow name="adminUrl" label="관리자 토픽" hint="관리자 요약 · 로그인 실패 경고 · 전시장 미선택 예약" state={admin} target="admin" />
+        <UrlRow name="teamUrl" label="전체 영업팀 토픽 (선택)" hint="모든 전시장 알림을 한 곳에서도 받을 때만" state={team} target="team" />
       </div>
 
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
