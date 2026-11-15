@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { VisitReservation } from "@/lib/types";
 import { showroomLabel } from "@/lib/types";
 import { vf } from "./fields";
+import { isResultPending } from "@/lib/visit-pending";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -138,14 +139,18 @@ export default function VisitCalendar({
                   const room = vf(v, ["showroom"]);
                   const roomName = room ? showroomLabel(room) : null;
                   const name = vf(v, ["name"], "name") || "(이름없음)";
+                  const pending = isResultPending(v, todayStr);
                   return (
                     <Link
                       key={v.id}
                       href={`/admin/visits/${v.id}`}
-                      className="group block rounded bg-seum-light px-1.5 py-0.5 text-[11px] font-medium leading-tight text-seum-dark hover:bg-seum hover:text-white"
-                      title={`${v.visit_time || ""} ${name} · ${roomName ?? "전시장 미선택"} (${v.visitor_count || "-"}명)`}
+                      className={`group block rounded px-1.5 py-0.5 text-[11px] font-medium leading-tight hover:bg-seum hover:text-white ${
+                        pending ? "bg-red-50 text-red-800 ring-1 ring-red-300" : "bg-seum-light text-seum-dark"
+                      }`}
+                      title={`${v.visit_time || ""} ${name} · ${roomName ?? "전시장 미선택"} (${v.visitor_count || "-"}명)${pending ? " · 방문 결과 입력 필요" : ""}`}
                     >
                       <span className="block truncate">
+                        {pending && <span className="mr-0.5 font-bold text-red-600 group-hover:text-white">⏰</span>}
                         {v.visit_time ? `${v.visit_time} ` : ""}
                         {name}
                       </span>

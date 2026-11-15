@@ -11,6 +11,7 @@ import { stageColor, type SalesCustomer, type SalesCustomerLog } from "@/lib/sal
 import { getSalespeople } from "@/lib/staff";
 import { dateLabel, kstToday } from "@/lib/kst";
 import AppNav from "@/app/AppNav";
+import { buildPhoneIndex, otherRefs, SOURCE_NAME } from "@/lib/dedupe";
 import CustomerForm from "../CustomerForm";
 import LogText from "../LogText";
 import { NoteInput } from "../RowControls";
@@ -33,7 +34,8 @@ export default async function CustomerDetail({ searchParams }: { searchParams: {
   if (!cRes.data) notFound();
   const c = cRes.data as SalesCustomer;
   const logs = (lRes.data ?? []) as SalesCustomerLog[];
-  const salespeople = await getSalespeople(supabase, [c.assignee]);
+  const [salespeople, phoneIdx] = await Promise.all([getSalespeople(supabase, [c.assignee]), buildPhoneIndex(supabase)]);
+  const others = otherRefs(phoneIdx, c.phone_digits || c.phone, { kind: "db", id: c.id });
 
   return (
     <main className="mx-auto max-w-none px-4 py-6">
@@ -59,6 +61,21 @@ export default async function CustomerDetail({ searchParams }: { searchParams: {
         </div>
         <span className={`rounded-full px-3 py-1 text-sm font-semibold ${stageColor(c.stage)}`}>{c.stage}</span>
       </div>
+
+      {others.length > 0 && (
+        <section className="mt-4 rounded-2xl border border-violet-200 bg-violet-50/60 p-3">
+          <h2 className="text-sm font-bold text-violet-900">🔗 같은 연락처로 다른 곳에도 등록된 기록 {others.length}건</h2>
+          <ul className="mt-2 flex flex-wrap gap-2 text-xs">
+            {others.map((r) => (
+              <li key={`${r.kind}:${r.id}`}>
+                <Link href={r.href} className="block rounded-lg bg-white px-3 py-1.5 shadow-sm hover:ring-1 hover:ring-violet-300">
+                  <b className="text-gray-800">{SOURCE_NAME[r.kind]}</b> <span className="text-gray-500">{r.label}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className="mt-4">
         <CustomerForm mode="edit" salespeople={salespeople} assignee={c.assignee} branch={c.branch ?? ""} today={kstToday()} customer={c} />
