@@ -86,6 +86,7 @@ export default function JandiSettings({
   toggles,
   lastTickAt,
   lastBriefDate,
+  recent = [],
 }: {
   team: UrlState;
   admin: UrlState;
@@ -95,6 +96,7 @@ export default function JandiSettings({
   toggles: { brief: boolean; newVisit: boolean; newCall: boolean; admin: boolean };
   lastTickAt?: string;
   lastBriefDate?: string;
+  recent?: { at: string; text: string }[];
 }) {
   const [state, action] = useFormState<ActionResult | null, FormData>(saveJandi, null);
   const [briefMsg, setBriefMsg] = useState<ActionResult | null>(null);
@@ -175,6 +177,23 @@ export default function JandiSettings({
         자동 실행: 5분마다 확인 · 마지막 실행 {lastTickAt ? new Date(lastTickAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", hour12: false }) : "아직 없음"}
         {lastBriefDate && ` · 마지막 브리핑 ${lastBriefDate}`}
       </p>
+      <details className="text-xs text-gray-500">
+        <summary className="cursor-pointer">최근 자동 전송 기록 {recent.length}건</summary>
+        {recent.length === 0 ? (
+          <p className="mt-1 text-gray-400">아직 없습니다.</p>
+        ) : (
+          <ul className="mt-1 max-h-48 space-y-0.5 overflow-auto">
+            {recent.map((r, i) => (
+              <li key={i}>
+                <span className="mr-2 text-gray-400">
+                  {new Date(r.at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })}
+                </span>
+                {r.text}
+              </li>
+            ))}
+          </ul>
+        )}
+      </details>
     </form>
   );
 }
