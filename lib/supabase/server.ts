@@ -28,6 +28,9 @@ export const SALES_CUSTOMER_LOGS_TABLE =
 export const ECONTRACTS_TABLE =
   process.env.SUPABASE_ECONTRACTS_TABLE || "econtracts";
 
+// 항상 최신 데이터를 읽도록 캐시 없이 요청
+const noStoreFetch: typeof fetch = (input, init) => fetch(input, { ...init, cache: "no-store" });
+
 /**
  * 서버 전용 Supabase 클라이언트.
  * service_role 키를 사용하므로 RLS를 우회하여 고객 조회/수정이 가능합니다.
@@ -45,6 +48,8 @@ export function createServiceClient() {
 
   return createClient(url, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
+    // Next.js 가 서버 fetch 결과를 캐시하지 않도록 (예약 실행이 옛 상태를 읽어 알림을 반복 전송하던 문제)
+    global: { fetch: noStoreFetch },
   });
 }
 
@@ -64,6 +69,7 @@ export function createAnonClient() {
 
   return createClient(url, anonKey, {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: noStoreFetch },
   });
 }
 

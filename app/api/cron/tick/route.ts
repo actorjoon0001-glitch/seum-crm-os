@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { cronSecret, runTick } from "@/lib/alerts";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 export const maxDuration = 25;
 
 // Netlify 예약 함수(netlify/functions/crm-tick.mjs)가 5분마다 호출

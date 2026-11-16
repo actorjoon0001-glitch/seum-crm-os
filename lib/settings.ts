@@ -32,6 +32,8 @@ export interface JandiState {
   visitCursor?: string; // 마지막으로 알린 방문예약 created_at
   lastFailAlertAt?: string; // 마지막 로그인 실패 경고 시각
   lastTickAt?: string; // 마지막 자동 실행 시각
+  lockUntil?: string; // 실행 중 잠금 (겹침 방지)
+  recent?: { at: string; text: string }[]; // 최근 전송 기록
 }
 
 export async function getSetting<T>(key: string, fallback: T): Promise<{ value: T; missing: boolean }> {

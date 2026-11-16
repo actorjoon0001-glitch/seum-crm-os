@@ -243,6 +243,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Searc
             toggles={{ brief: jandi.brief, newVisit: jandi.newVisit, newCall: jandi.newCall, admin: jandi.admin }}
             lastTickAt={jandiState.lastTickAt}
             lastBriefDate={jandiState.lastBriefDate}
+            recent={jandiState.recent ?? []}
           />
         )}
       </section>
