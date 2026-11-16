@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createServiceClient, hasSupabaseEnv, CALLS_TABLE } from "@/lib/supabase/server";
 import { requireAuth } from "@/lib/require-auth";
 import {
@@ -34,9 +34,11 @@ export default async function CallsPage({
 }) {
   const channel = params.channel;
   if (!isCallChannel(channel)) notFound();
+  // 영업사원 영업폰 화면은 폐지 — 개인 영업폰 고객은 고객DB · 일지에 기록
+  if (channel === "mobile") redirect("/admin/logs");
   await requireAuth(`/admin/calls/${channel}`);
   const meta = CALL_CHANNELS[channel];
-  const isMobile = channel === "mobile";
+  const isMobile = (channel as string) === "mobile";
 
   const shell = (body: React.ReactNode) => (
     <main className="mx-auto max-w-none px-4 py-6">
