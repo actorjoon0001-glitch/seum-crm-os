@@ -8,6 +8,8 @@ import { formatDateTime } from "@/lib/format";
 import type { VisitReservation } from "@/lib/types";
 import { showroomLabel } from "@/lib/types";
 import AppNav from "@/app/AppNav";
+import { canSeeVisit, getAccess } from "@/lib/access";
+import { logout } from "@/app/login/actions";
 import VisitCalendar, { defaultVisitMonth } from "./VisitCalendar";
 import { vf, getPayload } from "./fields";
 import { StatusSelect, AssigneeInput, StaffMemoInput, DeleteButton, VisitBranchSelect } from "./RowControls";
@@ -51,12 +53,27 @@ export default async function VisitsPage({
     .from(VISITS_TABLE)
     .select("*")
     .order("submitted_at", { ascending: false, nullsFirst: false })
-    .limit(300);
+    .limit(1000);
   if (q) query = query.or(`name.ilike.%${q}%,phone.ilike.%${q}%`);
   if (showroom) query = query.filter("payload->>showroom", "eq", showroom);
 
   const { data, error } = await query;
-  const fetched = (data ?? []) as VisitReservation[];
+  // 보기 범위: 넘긴 전시장 · 고객이 고른 전시장 · 담당 영업사원 기준 (관리자 · 전체 권한자는 전부)
+  const access = await getAccess();
+  if (!access.ok) {
+    return (
+      <main className="mx-auto max-w-none px-4 py-6">
+        <Header />
+        <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">
+          <p className="font-semibold">방문예약은 세움OS 계정으로 로그인해야 볼 수 있습니다.</p>
+          <form action={logout} className="mt-3">
+            <button className="rounded-lg bg-gray-900 px-4 py-2 font-semibold text-white">세움OS 계정으로 다시 로그인</button>
+          </form>
+        </div>
+      </main>
+    );
+  }
+  const fetched = ((data ?? []) as VisitReservation[]).filter((r) => canSeeVisit(access, r));
   const todayKst = kstToday();
   const pendingSince = await getVisitPendingSince(supabase);
   // 방문 결과 미입력: 방문일이 지났는데 상태가 신규/방문예정
@@ -97,7 +114,7 @@ export default async function VisitsPage({
 
   return (
     <main className="mx-auto max-w-none px-4 py-6">
-      <Header count={rows.length} />
+      <Header count={rows.length} scope={access.label} />
 
       {error ? (
         <SetupNotice message={error.message} />
@@ -335,7 +352,7 @@ function SetupNotice({ message }: { message: string }) {
   );
 }
 
-function Header({ count }: { count?: number }) {
+function Header({ count, scope }: { count?: number; scope?: string }) {
   return (
     <>
       <AppNav active="visits" />
@@ -343,6 +360,7 @@ function Header({ count }: { count?: number }) {
         <h1 className="text-2xl font-bold">🏠 방문예약 고객</h1>
         <p className="mt-0.5 text-sm text-gray-500">
           방문예약폼 접수 고객 {count !== undefined ? `· ${count}건` : ""}
+          {scope && <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600">👁 보기 범위: {scope}</span>}
         </p>
       </div>
     </>

@@ -372,9 +372,9 @@ export default async function ManagePage({ searchParams }: { searchParams: Searc
 
       {/* 고객DB 보기 권한 */}
       <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-bold">🔑 고객DB · 일지 · KPI 보기 권한</h2>
+        <h2 className="text-sm font-bold">🔑 보기 권한 (한눈에 보기 · 방문예약 · 대표번호 · 고객DB · 일지 · KPI)</h2>
         <p className="mb-3 mt-0.5 text-xs text-gray-500">
-          기본은 <b>자기 소속 전시장만</b> 보입니다. 다른 전시장까지 봐야 하는 사람만 여기서 넓혀 주세요. 관리자(admin)는 항상
+          기본은 <b>자기 소속 전시장만</b> 보입니다. 방문예약은 넘긴 전시장(없으면 고객이 고른 전시장), 대표번호는 넘긴 전시장 · 담당 영업사원 기준이며, 전시장이 정해지지 않은 건은 관리자 · 전체 권한자만 봅니다. 다른 전시장까지 봐야 하는 사람만 여기서 넓혀 주세요. 관리자(admin)는 항상
           전체입니다. 삭제는 담당자 본인과 관리자만 할 수 있습니다. 포털 자동로그인으로 들어온 사람은 세움OS 계정 로그인이
           필요합니다.
         </p>

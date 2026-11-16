@@ -18,6 +18,8 @@ import { kstMonthStartISO, kstShort, kstToday, kstTodayStartISO } from "@/lib/ks
 import { isMissingTable as isMissingDbTable } from "@/lib/db-errors";
 import { vf, statusMeta } from "@/app/admin/visits/fields";
 import AppNav from "@/app/AppNav";
+import { canSee, canSeeCall, canSeeVisit, getAccess } from "@/lib/access";
+import { logout } from "@/app/login/actions";
 import { isResultPending, type PendingScope } from "@/lib/visit-pending";
 import { getVisitPendingSince } from "@/lib/visit-pending-since";
 import { buildPhoneIndex } from "@/lib/dedupe";
@@ -54,6 +56,8 @@ type Column = {
 
 export default async function Home({ searchParams }: { searchParams: { month?: string } }) {
   await requireAuth("/");
+  // 보기 범위 (관리자 · 전체 권한자 = 전부 / 그 외 = 소속 전시장)
+  const access = await getAccess();
   const today = kstToday();
   const calMonth = /^\d{4}-\d{2}$/.test(searchParams.month || "")
     ? (searchParams.month as string)
@@ -65,7 +69,7 @@ export default async function Home({ searchParams }: { searchParams: { month?: s
 
   let columns: Column[] = [];
   let journal: { writers: number; total: number; newDb: number; contracts: number; missing: boolean } | null = null;
-  if (hasSupabaseEnv()) {
+  if (hasSupabaseEnv() && access.ok) {
     const supabase = createServiceClient();
     const todayStart = kstTodayStartISO();
     const monthStart = kstMonthStartISO();
@@ -81,32 +85,25 @@ export default async function Home({ searchParams }: { searchParams: { month?: s
         stats: null,
         items: [],
       };
-      const cnt = (f?: (q: any) => any) => {
-        let q = supabase.from(VISITS_TABLE).select("id", { count: "exact", head: true });
-        if (f) q = f(q);
-        return q;
-      };
-      const [total, today, month, pending, recent] = await Promise.all([
-        cnt(),
-        cnt((q) => q.gte("submitted_at", todayStart)),
-        cnt((q) => q.gte("submitted_at", monthStart)),
-        cnt((q) => q.or("status.is.null,status.eq.new")),
-        supabase
-          .from(VISITS_TABLE)
-          .select("*")
-          .order("submitted_at", { ascending: false, nullsFirst: false })
-          .limit(RECENT),
-      ]);
-      if (recent.error) {
-        col.error = recent.error.message;
+      // 보기 범위 안의 예약만 (관리자 · 전체 권한자는 전부)
+      const { data, error } = await supabase
+        .from(VISITS_TABLE)
+        .select("*")
+        .order("submitted_at", { ascending: false, nullsFirst: false })
+        .limit(5000);
+      if (error) {
+        col.error = error.message;
         return col;
       }
+      const rows = ((data ?? []) as VisitReservation[]).filter((r) => canSeeVisit(access, r));
+      const at = (r: VisitReservation) => r.submitted_at ?? r.created_at ?? "";
       col.stats = {
-        total: total.count ?? 0,
-        today: today.count ?? 0,
-        month: month.count ?? 0,
-        pending: pending.count ?? 0,
+        total: rows.length,
+        today: rows.filter((r) => at(r) >= todayStart).length,
+        month: rows.filter((r) => at(r) >= monthStart).length,
+        pending: rows.filter((r) => !r.status || r.status === "new").length,
       };
+      const recent = { data: rows.slice(0, RECENT) };
       col.items = ((recent.data ?? []) as VisitReservation[]).map((r) => {
         const vdate = vf(r, ["visitDate"], "visit_date");
         const vtime = vf(r, ["visitTime"], "visit_time");
@@ -138,37 +135,25 @@ export default async function Home({ searchParams }: { searchParams: { month?: s
         stats: null,
         items: [],
       };
-      const cnt = (f?: (q: any) => any) => {
-        let q = supabase
-          .from(CALLS_TABLE)
-          .select("id", { count: "exact", head: true })
-          .eq("channel", channel);
-        if (f) q = f(q);
-        return q;
-      };
-      const [total, today, month, pending, recent] = await Promise.all([
-        cnt(),
-        cnt((q) => q.gte("called_at", todayStart)),
-        cnt((q) => q.gte("called_at", monthStart)),
-        cnt((q) => q.eq("status", "new")),
-        supabase
-          .from(CALLS_TABLE)
-          .select("*")
-          .eq("channel", channel)
-          .order("called_at", { ascending: false })
-          .limit(RECENT),
-      ]);
-      if (recent.error) {
-        col.error = recent.error.message;
-        col.needsSetup = isMissingTable(recent.error);
+      const { data, error } = await supabase
+        .from(CALLS_TABLE)
+        .select("*")
+        .eq("channel", channel)
+        .order("called_at", { ascending: false })
+        .limit(5000);
+      if (error) {
+        col.error = error.message;
+        col.needsSetup = isMissingTable(error);
         return col;
       }
+      const rows = ((data ?? []) as CallLead[]).filter((c) => canSeeCall(access, c));
       col.stats = {
-        total: total.count ?? 0,
-        today: today.count ?? 0,
-        month: month.count ?? 0,
-        pending: pending.count ?? 0,
+        total: rows.length,
+        today: rows.filter((c) => (c.called_at ?? "") >= todayStart).length,
+        month: rows.filter((c) => (c.called_at ?? "") >= monthStart).length,
+        pending: rows.filter((c) => c.status === "new").length,
       };
+      const recent = { data: rows.slice(0, RECENT) };
       col.items = ((recent.data ?? []) as CallLead[]).map((r) => ({
         id: r.id,
         href: col.href,
@@ -190,7 +175,9 @@ export default async function Home({ searchParams }: { searchParams: { month?: s
         .limit(5000);
       if (error)
         return { writers: 0, total: 0, newDb: 0, contracts: 0, missing: isMissingDbTable(error) };
-      const list = (data ?? []) as { assignee: string; kind: string; to_stage: string | null }[];
+      const list = ((data ?? []) as { assignee: string; kind: string; to_stage: string | null }[]).filter((r) =>
+        canSee(access, r.assignee)
+      );
       return {
         writers: new Set(list.map((r) => r.assignee)).size,
         total: list.length,
@@ -207,7 +194,7 @@ export default async function Home({ searchParams }: { searchParams: { month?: s
         .select("*")
         .like("visit_date", `${calMonth}%`)
         .limit(1000);
-      return (data ?? []) as VisitReservation[];
+      return ((data ?? []) as VisitReservation[]).filter((r) => canSeeVisit(access, r));
     };
 
     // 방문 결과 미입력 (방문일 지남 + 상태 신규/방문예정)
@@ -218,10 +205,13 @@ export default async function Home({ searchParams }: { searchParams: { month?: s
         .select("*")
         .or("status.is.null,status.in.(new,scheduled)")
         .limit(3000);
-      return ((data ?? []) as VisitReservation[]).filter((r) => isResultPending(r, today, pendingSince)).length;
+      return ((data ?? []) as VisitReservation[]).filter(
+        (r) => canSeeVisit(access, r) && isResultPending(r, today, pendingSince)
+      ).length;
     };
     // 방문예약 · 대표번호 사이 같은 연락처(중복) 수
     const dupCount = async () => {
+      if (!access.all) return 0; // 전시장 범위로 볼 때는 중복 합계 생략
       const idx = await buildPhoneIndex(supabase);
       let n = 0;
       for (const refs of Array.from(idx.values())) {
@@ -246,7 +236,15 @@ export default async function Home({ searchParams }: { searchParams: { month?: s
     <main className="mx-auto max-w-none px-4 py-6">
       <AppNav active="home" />
 
-      {!hasSupabaseEnv() ? (
+      {!access.ok ? (
+        <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">
+          <p className="font-semibold">세움OS 계정으로 로그인해야 우리 전시장 고객을 볼 수 있습니다.</p>
+          <p className="mt-1 text-amber-700">포털 자동로그인으로는 누구인지 알 수 없어 전시장별 고객을 보여드릴 수 없어요.</p>
+          <form action={logout} className="mt-3">
+            <button className="rounded-lg bg-gray-900 px-4 py-2 font-semibold text-white">세움OS 계정으로 다시 로그인</button>
+          </form>
+        </div>
+      ) : !hasSupabaseEnv() ? (
         <p className="mt-8 text-sm text-gray-400">Supabase 연결이 필요합니다.</p>
       ) : (
         <>

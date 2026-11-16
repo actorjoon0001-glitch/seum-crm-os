@@ -8,6 +8,8 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { getSession } from "@/lib/require-auth";
 import { getSetting } from "@/lib/settings";
 import { getSalespeople, type Salesperson } from "@/lib/staff";
+import { SHOWROOM_LABEL, showroomLabel, type CallLead, type VisitReservation } from "@/lib/types";
+import { vf } from "@/app/admin/visits/fields";
 
 export interface AccessGrant {
   scope: "own" | "all" | "branches";
@@ -73,4 +75,29 @@ export function canSee(a: Access, assignee: string | null | undefined): boolean 
 // 삭제: 관리자 또는 담당자 본인
 export function canDelete(a: Access, assignee: string | null | undefined): boolean {
   return a.isOwner || (!!assignee && assignee === a.self);
+}
+
+// ── 방문예약 · 대표번호 보기 범위 ──
+// 방문예약 전시장: 직원이 넘긴 전시장(handoffBranch) 우선, 없으면 고객이 고른 전시장
+export function visitBranchOf(r: VisitReservation): string | null {
+  const handed = vf(r, ["handoffBranch"]);
+  if (handed) return handed;
+  const code = vf(r, ["showroom"]);
+  return code ? SHOWROOM_LABEL[code] ?? showroomLabel(code) : null;
+}
+
+// 전시장이 범위 안이거나 담당 영업사원이 범위 안이면 보임. 전시장 미정 건은 관리자 · 전체 권한자만
+export function canSeeVisit(a: Access, r: VisitReservation): boolean {
+  if (!a.ok) return false;
+  if (a.all) return true;
+  const b = visitBranchOf(r);
+  if (b && a.branches.includes(b)) return true;
+  return !!r.assigned_to && a.names.has(r.assigned_to);
+}
+
+export function canSeeCall(a: Access, c: Pick<CallLead, "branch" | "salesperson">): boolean {
+  if (!a.ok) return false;
+  if (a.all) return true;
+  if (c.branch && a.branches.includes(c.branch)) return true;
+  return !!c.salesperson && a.names.has(c.salesperson);
 }

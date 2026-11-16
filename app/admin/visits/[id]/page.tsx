@@ -9,6 +9,7 @@ import { formatDateTime } from "@/lib/format";
 import type { VisitReservation } from "@/lib/types";
 import { getPayload, payloadEntries, vf } from "../fields";
 import { requireAuth } from "@/lib/require-auth";
+import { canSeeVisit, getAccess } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -31,6 +32,8 @@ export default async function VisitDetail({
 
   if (!data) notFound();
   const r = data as VisitReservation;
+  // 보기 범위 밖의 예약은 주소를 직접 입력해도 볼 수 없음
+  if (!canSeeVisit(await getAccess(), r)) notFound();
 
   const name = vf(r, ["name"], "name") || "(이름없음)";
   const phone = vf(r, ["phone"], "phone");

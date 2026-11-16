@@ -93,7 +93,7 @@ export default function AccessSettings({ rows, allBranches }: { rows: AccessRow[
               <th className="px-2 py-1.5 font-medium">이름</th>
               <th className="px-2 py-1.5 font-medium">팀</th>
               <th className="px-2 py-1.5 font-medium">소속 전시장</th>
-              <th className="px-2 py-1.5 font-medium">고객DB · 일지 · KPI 보기 범위</th>
+              <th className="px-2 py-1.5 font-medium">보기 범위</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
