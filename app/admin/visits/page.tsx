@@ -57,7 +57,7 @@ export default async function VisitsPage({
   const { data, error } = await query;
   const fetched = (data ?? []) as VisitReservation[];
   const todayKst = kstToday();
-  const { since: pendingSince } = await getVisitPendingSince(supabase);
+  const pendingSince = await getVisitPendingSince(supabase);
   // 방문 결과 미입력: 방문일이 지났는데 상태가 신규/방문예정
   const pendingCount = fetched.filter((r) => isResultPending(r, todayKst, pendingSince)).length;
   const pendingOnly = searchParams.pending === "1";

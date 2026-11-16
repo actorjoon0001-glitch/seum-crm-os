@@ -156,7 +156,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Searc
       } 접수${v.visit_date ? ` · 방문 ${v.visit_date}` : ""}`,
     };
   });
-  const currentVisitId = visitOpts.find((v) => v.at && pendingSetting.since && Date.parse(v.at) === Date.parse(pendingSetting.since))?.id ?? "";
+  const currentVisitId = "";
   const urlState = (u: string | undefined): UrlState => ({ set: validJandiUrl(u), tail: (u ?? "").slice(-6) });
   const groups = groupByBranch(staff);
   const wroteToday = staff.filter((s) => cell.has(`${s.name}|${today}`)).length;
@@ -251,26 +251,27 @@ export default async function ManagePage({ searchParams }: { searchParams: Searc
       <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-bold">⏰ 방문 결과 미입력 추적 기준</h2>
         <p className="mt-0.5 text-xs text-gray-500">
-          이 예약보다 먼저 접수된 과거 예약은 &apos;결과 미입력&apos; 표시 · 알림에서 제외합니다. 현재:{" "}
+          이미 지나간 과거 예약은 &apos;결과 미입력&apos; 표시 · 알림에서 제외합니다. 현재:{" "}
           <b className="text-gray-800">
-            {pendingSetting.since
-              ? `${pendingSetting.label ?? ""} (${new Date(pendingSetting.since).toLocaleString("ko-KR", {
-                  timeZone: "Asia/Seoul",
-                  hour12: false,
-                })})`
+            {pendingSetting.since || pendingSetting.fromVisitDate
+              ? `${pendingSetting.label ?? ""}${
+                  pendingSetting.since
+                    ? ` · ${new Date(pendingSetting.since).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", hour12: false })} 이후 접수`
+                    : ""
+                }`
               : "전체 예약 (기준 없음)"}
           </b>
         </p>
         <form action={setPendingSince} className="mt-2 flex flex-wrap items-center gap-2">
           <select name="visitId" defaultValue={currentVisitId} className="max-w-md rounded-lg border border-gray-300 px-2 py-1.5 text-sm">
-            <option value="">전체 예약 (기준 없음)</option>
+            <option value="">기준 예약 선택 (선택 안 하면 전체 추적)</option>
             {visitOpts.map((v) => (
               <option key={v.id} value={v.id}>
                 {v.label}
               </option>
             ))}
           </select>
-          <button className="rounded-lg bg-gray-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-seum">이 예약부터 추적</button>
+          <button className="rounded-lg bg-gray-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-seum">이 예약 방문일부터 + 새 예약 추적</button>
         </form>
       </section>
 

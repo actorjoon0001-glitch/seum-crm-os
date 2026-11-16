@@ -70,7 +70,7 @@ export async function buildDailyBrief(supabase: SupabaseClient): Promise<BriefRe
   const todayVisits = ((todayVisitsRes.data ?? []) as VisitReservation[]).sort((a, b) =>
     (vf(a, ["visitTime"], "visit_time") || "").localeCompare(vf(b, ["visitTime"], "visit_time") || "")
   );
-  const { since: pendingSince } = await getVisitPendingSince(supabase);
+  const pendingSince = await getVisitPendingSince(supabase);
   const pending = ((openVisitsRes.data ?? []) as VisitReservation[]).filter((r) => isResultPending(r, today, pendingSince));
   const followUps = ((custRes.data ?? []) as SalesCustomer[]).filter((c) => isOpenStage(c.stage) && c.next_action_date);
   const wrote = new Set(((ylogRes.data ?? []) as { assignee: string }[]).map((r) => r.assignee));

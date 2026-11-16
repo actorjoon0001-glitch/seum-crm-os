@@ -18,7 +18,7 @@ import { kstMonthStartISO, kstShort, kstToday, kstTodayStartISO } from "@/lib/ks
 import { isMissingTable as isMissingDbTable } from "@/lib/db-errors";
 import { vf, statusMeta } from "@/app/admin/visits/fields";
 import AppNav from "@/app/AppNav";
-import { isResultPending } from "@/lib/visit-pending";
+import { isResultPending, type PendingScope } from "@/lib/visit-pending";
 import { getVisitPendingSince } from "@/lib/visit-pending-since";
 import { buildPhoneIndex } from "@/lib/dedupe";
 import VisitCalendar from "@/app/admin/visits/VisitCalendar";
@@ -60,7 +60,7 @@ export default async function Home({ searchParams }: { searchParams: { month?: s
     : today.slice(0, 7);
   let calRows: VisitReservation[] = [];
   let pendingVisits = 0;
-  let pendingSince: string | null = null;
+  let pendingSince: PendingScope | null = null;
   let duplicates = 0;
 
   let columns: Column[] = [];
@@ -211,7 +211,7 @@ export default async function Home({ searchParams }: { searchParams: { month?: s
     };
 
     // 방문 결과 미입력 (방문일 지남 + 상태 신규/방문예정)
-    pendingSince = (await getVisitPendingSince(supabase)).since;
+    pendingSince = await getVisitPendingSince(supabase);
     const pendingCount = async () => {
       const { data } = await supabase
         .from(VISITS_TABLE)

@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { VisitReservation } from "@/lib/types";
 import { showroomLabel } from "@/lib/types";
 import { vf } from "./fields";
-import { isResultPending } from "@/lib/visit-pending";
+import { isResultPending, type PendingScope } from "@/lib/visit-pending";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -44,7 +44,7 @@ export default function VisitCalendar({
   params: Record<string, string>;
   basePath?: string;
   compact?: boolean; // 홈 대시보드용: 셀 높이 축소
-  pendingSince?: string | null; // 결과 미입력 추적 시작 기준
+  pendingSince?: PendingScope | string | null; // 결과 미입력 추적 기준
 }) {
   const [year, m] = month.split("-").map(Number); // m: 1-indexed
   const monthIdx = m - 1;

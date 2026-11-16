@@ -1,35 +1,37 @@
-// 방문 결과 미입력 '추적 시작 기준' (crm_settings.visit_pending)
-// 처음에는 윤소영 고객 예약의 접수 시각을 기준으로 자동 설정 → 관리자 화면에서 변경 가능
+// 방문 결과 미입력 '추적 기준' (crm_settings.visit_pending)
+// 기본: 적용 시점 이후 새로 접수되는 예약 + 윤소영 고객 방문일 이후 예약만 추적 (지나간 과거 예약 제외)
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { VISITS_TABLE } from "@/lib/supabase/server";
 import { getSetting, setSetting } from "@/lib/settings";
+import { visitDateOf, type PendingScope } from "@/lib/visit-pending";
+import type { VisitReservation } from "@/lib/types";
 
-export interface VisitPendingSetting {
-  since: string | null; // 이 시각 이후 접수된 예약만 추적
-  label?: string | null; // 기준 예약 표시 (예: "윤소영 · 11.14 접수")
-  bootstrapped?: boolean;
+export interface VisitPendingSetting extends PendingScope {
+  label?: string | null;
+  v?: number; // 설정 버전 (2 = 새 기준)
 }
 
-const START_NAME = "윤소영"; // 요청: 윤소영 예약부터 추적 시작
+const START_NAME = "윤소영";
 
 export async function getVisitPendingSince(supabase: SupabaseClient): Promise<VisitPendingSetting> {
   const { value, missing } = await getSetting<VisitPendingSetting>("visit_pending", { since: null });
-  if (missing || value.bootstrapped) return value;
+  if (missing) return { since: null };
+  if (value.v === 2) return value;
 
-  // 최초 1회: 윤소영 예약의 접수 시각을 찾아 기준으로 저장
+  // 최초 1회(새 기준): 지금 시각 + 윤소영 방문일
   const { data } = await supabase
     .from(VISITS_TABLE)
-    .select("id,name,payload,submitted_at,created_at")
-    .or(`name.eq.${START_NAME},payload->>name.eq.${START_NAME}`)
-    .order("submitted_at", { ascending: false, nullsFirst: false })
-    .limit(1);
-  const r = (data ?? [])[0] as { submitted_at: string | null; created_at: string | null } | undefined;
-  const since = r ? r.submitted_at || r.created_at : null;
+    .select("*")
+    .or(`name.ilike.*${START_NAME}*,payload->>name.ilike.*${START_NAME}*`)
+    .limit(5);
+  const dates = ((data ?? []) as VisitReservation[]).map(visitDateOf).filter(Boolean).sort();
+  const fromVisitDate = dates.length ? dates[dates.length - 1] : null;
   const next: VisitPendingSetting = {
-    since,
-    label: since ? `${START_NAME} 예약 접수 시각부터` : null,
-    bootstrapped: !!since,
+    since: new Date().toISOString(),
+    fromVisitDate,
+    label: fromVisitDate ? `새로 접수되는 예약 + ${START_NAME} 방문일(${fromVisitDate}) 이후 예약` : "새로 접수되는 예약부터",
+    v: 2,
   };
-  if (since) await setSetting("visit_pending", next);
+  await setSetting("visit_pending", next);
   return next;
 }
