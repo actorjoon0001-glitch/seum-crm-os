@@ -138,8 +138,10 @@ export default function VisitCalendar({
               <div className="mt-1 space-y-1">
                 {visits.map((v) => {
                   // 고객이 예약폼에서 선택한 전시장 (없으면 '전시장 미선택')
+                  // 직원이 넘긴 전시장이 있으면 그것을, 없으면 고객이 고른 전시장
+                  const handed = vf(v, ["handoffBranch"]);
                   const room = vf(v, ["showroom"]);
-                  const roomName = room ? showroomLabel(room) : null;
+                  const roomName = handed ? `→ ${handed}` : room ? showroomLabel(room) : null;
                   const name = vf(v, ["name"], "name") || "(이름없음)";
                   const pending = isResultPending(v, todayStr, pendingSince);
                   return (

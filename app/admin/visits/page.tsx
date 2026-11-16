@@ -10,7 +10,8 @@ import { showroomLabel } from "@/lib/types";
 import AppNav from "@/app/AppNav";
 import VisitCalendar, { defaultVisitMonth } from "./VisitCalendar";
 import { vf, getPayload } from "./fields";
-import { StatusSelect, AssigneeInput, StaffMemoInput, DeleteButton } from "./RowControls";
+import { StatusSelect, AssigneeInput, StaffMemoInput, DeleteButton, VisitBranchSelect } from "./RowControls";
+import { getBranches } from "@/lib/staff";
 import { requireAuth } from "@/lib/require-auth";
 import { kstToday } from "@/lib/kst";
 import { isResultPending } from "@/lib/visit-pending";
@@ -64,6 +65,8 @@ export default async function VisitsPage({
   const rows = pendingOnly ? fetched.filter((r) => isResultPending(r, todayKst, pendingSince)) : fetched;
   // 같은 연락처가 다른 곳(대표번호·영업폰·고객DB·다른 방문예약)에도 있는지
   const phoneIdx = await buildPhoneIndex(supabase);
+  // 넘길 전시장 목록 (세움OS 전시장)
+  const branches = await getBranches(supabase);
 
   // 전시장 목록(필터) — payload에서 추출
   const { data: allRows } = await supabase
@@ -176,15 +179,16 @@ export default async function VisitsPage({
                   <col className="w-[9%]" />{/* 고객 */}
                   <col className="w-[7%]" />{/* 방문일시 */}
                   <col className="w-[6%]" />{/* 전시장 */}
-                  <col className="w-[8%]" />{/* 관심유형/평수 */}
+                  <col className="w-[7%]" />{/* 관심유형/평수 */}
                   <col className="w-[6%]" />{/* 예산 */}
                   <col className="w-[5%]" />{/* 건축시기 */}
                   <col className="w-[5%]" />{/* 토지 보유 */}
-                  <col className="w-[8%]" />{/* 토지 지번주소 */}
-                  <col className="w-[13%]" />{/* 고객 메모 */}
-                  <col className="w-[7%]" />{/* 접수일 */}
+                  <col className="w-[7%]" />{/* 토지 지번주소 */}
+                  <col className="w-[10%]" />{/* 고객 메모 */}
+                  <col className="w-[6%]" />{/* 접수일 */}
                   <col className="w-[6%]" />{/* 상태 */}
                   <col className="w-[7%]" />{/* 담당 영업사원 */}
+                  <col className="w-[7%]" />{/* 넘길 전시장 */}
                   <col className="w-[8%]" />{/* 직원 메모 */}
                   <col className="w-[5%]" />{/* 삭제 */}
                 </colgroup>
@@ -202,6 +206,7 @@ export default async function VisitsPage({
                     <th className="px-2.5 py-2 font-medium">접수일</th>
                     <th className="px-2.5 py-2 font-medium">상태</th>
                     <th className="px-2.5 py-2 font-medium">담당 영업사원</th>
+                    <th className="px-2.5 py-2 font-medium">넘길 전시장</th>
                     <th className="px-2.5 py-2 font-medium">직원 메모</th>
                     <th className="px-2.5 py-2 font-medium"></th>
                   </tr>
@@ -283,6 +288,20 @@ export default async function VisitsPage({
                         </td>
                         <td className="px-2.5 py-2">
                           <AssigneeInput id={r.id} value={r.assigned_to} />
+                        </td>
+                        <td className="px-1.5 py-2">
+                          <VisitBranchSelect
+                            id={r.id}
+                            branch={(() => {
+                              const v = getPayload(r)?.handoffBranch;
+                              return typeof v === "string" ? v : null;
+                            })()}
+                            handedAt={(() => {
+                              const v = getPayload(r)?.handoffAt;
+                              return typeof v === "string" ? v : null;
+                            })()}
+                            branches={branches}
+                          />
                         </td>
                         <td className="px-2.5 py-2 align-top">
                           <StaffMemoInput id={r.id} value={staffMemo} />

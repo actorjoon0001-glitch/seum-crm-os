@@ -17,7 +17,10 @@ const lines = (arr: string[], empty: string) =>
     ? empty
     : arr.slice(0, MAX_LINES).join("\n") + (arr.length > MAX_LINES ? `\n…외 ${arr.length - MAX_LINES}건` : "");
 
+// 방문예약의 전시장: 직원이 넘긴 전시장(handoffBranch) 우선, 없으면 고객이 고른 전시장
 function visitRoom(r: VisitReservation): string | null {
+  const handed = vf(r, ["handoffBranch"]);
+  if (handed) return handed;
   const code = vf(r, ["showroom"]);
   return code ? showroomLabel(code) : null;
 }

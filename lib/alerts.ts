@@ -223,6 +223,24 @@ export async function notifyCallHandoff(
   }
 }
 
+// 방문예약을 전시장으로 넘겼을 때: 그 전시장 잔디 영업팀 토픽으로 알림
+export async function notifyVisitHandoff(r: VisitReservation, branch: string, by: string | null) {
+  try {
+    const { value: cfg, missing } = await getJandiConfig();
+    if (missing || !anyUrl(cfg)) return;
+    const route = routeUrl(cfg, branch);
+    if (!route.url) return;
+    const { msg } = newVisitMessage(r);
+    await sendJandi(route.url, {
+      ...msg,
+      body: `📨 방문예약 고객이 [${branch}]으로 넘어왔습니다 — ${msg.body.split("— ")[1] ?? ""}${by ? `\n넘긴 사람: ${by}` : ""}`,
+      color: "#6366F1",
+    });
+  } catch {
+    /* 알림 실패는 넘기기에 영향 없음 */
+  }
+}
+
 // 자동 실행 비밀값 (Netlify 예약 함수와 같은 방식으로 계산)
 export async function cronSecret(): Promise<string> {
   const base = process.env.CRON_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
