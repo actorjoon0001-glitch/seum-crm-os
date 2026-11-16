@@ -94,7 +94,7 @@ export async function deleteVisit(id: string) {
 }
 
 // 방문예약을 전시장으로 넘기기 (payload.handoffBranch) → 그 전시장 잔디 영업팀 토픽 알림
-export async function updateVisitBranch(id: string, branch: string) {
+export async function updateVisitBranch(id: string, branch: string): Promise<{ by: string | null }> {
   if (!(await isAuthed())) throw new Error("로그인이 필요합니다.");
   await guardVisit(id);
   const b = branch.trim().slice(0, 40);
@@ -112,16 +112,22 @@ export async function updateVisitBranch(id: string, branch: string) {
       payload = {};
     }
   }
+  // 넘긴 사람 이름도 함께 기록
+  const by = b ? (await currentUserName()) || null : null;
   if (b) {
     payload.handoffBranch = b;
     payload.handoffAt = new Date().toISOString();
+    if (by) payload.handoffBy = by;
+    else delete payload.handoffBy;
   } else {
     delete payload.handoffBranch;
     delete payload.handoffAt;
+    delete payload.handoffBy;
   }
   const { error } = await supabase.from(VISITS_TABLE).update({ payload }).eq("id", id);
   if (error) throw new Error(error.message);
-  if (b) await notifyVisitHandoff({ ...data, payload }, b, await currentUserName());
+  if (b) await notifyVisitHandoff({ ...data, payload }, b, by);
   revalidatePath("/admin/visits");
   revalidatePath("/");
+  return { by };
 }

@@ -86,17 +86,20 @@ export function VisitBranchSelect({
   id,
   branch,
   handedAt,
+  handedBy,
   branches,
 }: {
   id: string;
   branch: string | null;
   handedAt: string | null;
+  handedBy?: string | null;
   branches: string[];
 }) {
   const [value, setValue] = useState(branch ?? "");
   const [pending, startTransition] = useTransition();
   const [err, setErr] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [sentBy, setSentBy] = useState<string | null>(null);
   const opts = value && !branches.includes(value) ? [value, ...branches] : branches;
   return (
     <div>
@@ -111,8 +114,9 @@ export function VisitBranchSelect({
           setErr(null);
           startTransition(async () => {
             try {
-              await updateVisitBranch(id, next);
+              const res = await updateVisitBranch(id, next);
               setSent(!!next);
+              setSentBy(res?.by ?? null);
             } catch (er) {
               setValue(prev);
               setErr(er instanceof Error ? er.message : "저장 실패");
@@ -130,10 +134,15 @@ export function VisitBranchSelect({
           </option>
         ))}
       </select>
-      {sent && <div className="mt-0.5 text-[10px] text-green-600">✓ 넘김 · 잔디 알림</div>}
+      {sent && (
+        <div className="mt-0.5 text-[10px] text-green-600">
+          ✓ {sentBy ? <b className="font-semibold">{sentBy}</b> : null} 넘김 · 잔디 알림
+        </div>
+      )}
       {!sent && value && handedAt && (
         <div className="mt-0.5 text-[10px] text-gray-400">
-          {new Date(handedAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })} 넘김
+          {new Date(handedAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })}{" "}
+          {handedBy ? <b className="font-semibold text-gray-600">{handedBy}</b> : null} 넘김
         </div>
       )}
       {err && <div className="mt-0.5 text-[10px] leading-tight text-red-600">{err}</div>}
