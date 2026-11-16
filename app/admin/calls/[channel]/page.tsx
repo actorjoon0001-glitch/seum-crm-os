@@ -10,6 +10,7 @@ import {
 } from "@/lib/types";
 import { kstNowInputValue, kstShort } from "@/lib/kst";
 import AppNav from "@/app/AppNav";
+import { canSeeCall, getAccess } from "@/lib/access";
 import DupBadge from "@/app/DupBadge";
 import { buildPhoneIndex, otherRefs } from "@/lib/dedupe";
 import CallForm from "../CallForm";
@@ -92,7 +93,16 @@ export default async function CallsPage({
       )
     );
   }
-  const rows = (data ?? []) as CallLead[];
+  // 보기 범위: 넘긴 전시장 · 담당 영업사원 소속 기준 (관리자 · 전체 권한자는 전부, 아직 안 넘긴 문의 포함)
+  const access = await getAccess();
+  if (!access.ok) {
+    return shell(
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">
+        대표번호 고객은 세움OS 계정으로 로그인해야 볼 수 있습니다.
+      </div>
+    );
+  }
+  const rows = ((data ?? []) as CallLead[]).filter((c) => canSeeCall(access, c));
   // 고객등급 칸이 아직 없으면 안내
   const { error: gradeColErr } = await supabase.from(CALLS_TABLE).select("grade").limit(1);
   const gradeColMissing = !!gradeColErr && /grade/.test(gradeColErr.message);

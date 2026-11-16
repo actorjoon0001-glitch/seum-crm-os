@@ -5,6 +5,7 @@ import { createServiceClient, CALLS_TABLE } from "@/lib/supabase/server";
 import { currentRole, currentUserName, isAuthed } from "@/lib/require-auth";
 import { logActivity } from "@/lib/activity";
 import { notifyCallHandoff, notifyNewCall } from "@/lib/alerts";
+import { canSeeCall, getAccess } from "@/lib/access";
 import { isCallChannel, CALL_STATUSES } from "@/lib/types";
 import { kstInputToISO } from "@/lib/kst";
 import { isGrade } from "@/lib/sales-db";
@@ -16,8 +17,14 @@ export interface CallFormResult {
   seq?: number;
 }
 
-async function guard() {
+async function guard(id?: string) {
   if (!(await isAuthed())) throw new Error("로그인이 필요합니다.");
+  if (id) {
+    // 보기 범위 안의 문의만 수정 · 삭제 가능
+    const { data } = await createServiceClient().from(CALLS_TABLE).select("*").eq("id", id).maybeSingle();
+    if (!data) throw new Error("문의를 찾을 수 없습니다.");
+    if (!canSeeCall(await getAccess(), data)) throw new Error("다른 전시장 문의는 수정할 수 없습니다.");
+  }
 }
 
 function refresh(channel?: string) {
@@ -98,7 +105,7 @@ type EditableField = (typeof EDITABLE)[number];
 
 // 목록에서 한 칸 수정 (상태 / 영업사원 / 메모 등)
 export async function updateCallField(id: string, field: EditableField, value: string) {
-  await guard();
+  await guard(id);
   if (!EDITABLE.includes(field)) throw new Error("수정할 수 없는 항목입니다.");
   const v = value.trim();
   if (field === "status" && !CALL_STATUSES.some((s) => s.value === v))
@@ -125,7 +132,7 @@ export async function updateCallField(id: string, field: EditableField, value: s
 }
 
 export async function deleteCallLead(id: string) {
-  await guard();
+  await guard(id);
   const supabase = createServiceClient();
   const { data: cur } = await supabase.from(CALLS_TABLE).select("channel,name,phone").eq("id", id).single();
   const { error } = await supabase.from(CALLS_TABLE).delete().eq("id", id);
