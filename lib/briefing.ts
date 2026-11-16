@@ -1,5 +1,6 @@
 // 잔디로 보낼 메시지 만들기: 아침 브리핑 · 새 방문예약 · 대표번호 문의 · 관리자 요약
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getNewPendingSince, isAfter } from "@/lib/new-pending";
 import { CALLS_TABLE, SALES_CUSTOMERS_TABLE, SALES_CUSTOMER_LOGS_TABLE, VISITS_TABLE } from "@/lib/supabase/server";
 import { showroomLabel, type CallLead, type VisitReservation } from "@/lib/types";
 import { isOpenStage, type SalesCustomer } from "@/lib/sales-db";
@@ -64,7 +65,10 @@ export async function buildDailyBrief(supabase: SupabaseClient): Promise<BriefRe
     // 대표번호에서 전시장으로 넘어왔는데 아직 '신규' 상태인 문의
     supabase.from(CALLS_TABLE).select("*").eq("channel", "main").not("branch", "is", null).eq("status", "new").limit(500),
   ]);
-  const handed = ((handedRes.error ? [] : handedRes.data) ?? []) as CallLead[];
+  const newSince = await getNewPendingSince();
+  const handed = (((handedRes.error ? [] : handedRes.data) ?? []) as CallLead[]).filter((c) =>
+    isAfter(c.created_at ?? c.called_at, newSince)
+  );
 
   const people = staff.filter((s) => s.fromStaff);
   const branchOf = new Map(people.map((p) => [p.name, p.branch?.trim() || NO_BRANCH]));

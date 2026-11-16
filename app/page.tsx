@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getNewPendingSince, isAfter } from "@/lib/new-pending";
 import { requireAuth } from "@/lib/require-auth";
 import {
   createServiceClient,
@@ -72,6 +73,8 @@ export default async function Home({ searchParams }: { searchParams: { month?: s
   if (hasSupabaseEnv() && access.ok) {
     const supabase = createServiceClient();
     const todayStart = kstTodayStartISO();
+    // 신규 · 미처리는 기준 시각 이후 들어온 건만
+    const newSince = await getNewPendingSince();
     const monthStart = kstMonthStartISO();
 
     // ---------- 1) 방문예약 ----------
@@ -101,7 +104,7 @@ export default async function Home({ searchParams }: { searchParams: { month?: s
         total: rows.length,
         today: rows.filter((r) => at(r) >= todayStart).length,
         month: rows.filter((r) => at(r) >= monthStart).length,
-        pending: rows.filter((r) => !r.status || r.status === "new").length,
+        pending: rows.filter((r) => (!r.status || r.status === "new") && isAfter(at(r), newSince)).length,
       };
       const recent = { data: rows.slice(0, RECENT) };
       col.items = ((recent.data ?? []) as VisitReservation[]).map((r) => {
@@ -151,7 +154,7 @@ export default async function Home({ searchParams }: { searchParams: { month?: s
         total: rows.length,
         today: rows.filter((c) => (c.called_at ?? "") >= todayStart).length,
         month: rows.filter((c) => (c.called_at ?? "") >= monthStart).length,
-        pending: rows.filter((c) => c.status === "new").length,
+        pending: rows.filter((c) => c.status === "new" && isAfter(c.created_at ?? c.called_at, newSince)).length,
       };
       const recent = { data: rows.slice(0, RECENT) };
       col.items = ((recent.data ?? []) as CallLead[]).map((r) => ({
