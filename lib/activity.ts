@@ -4,7 +4,7 @@ import { createServiceClient, hasSupabaseEnv } from "@/lib/supabase/server";
 
 export const ACTIVITY_TABLE = "crm_activity_logs";
 
-export type ActivityKind = "login" | "login_failed" | "auto_login" | "logout" | "delete";
+export type ActivityKind = "login" | "login_failed" | "auto_login" | "logout" | "delete" | "permission";
 
 export const ACTIVITY_LABEL: Record<string, { label: string; color: string }> = {
   login: { label: "로그인", color: "bg-emerald-100 text-emerald-700" },
@@ -12,6 +12,7 @@ export const ACTIVITY_LABEL: Record<string, { label: string; color: string }> = 
   login_failed: { label: "로그인 실패", color: "bg-red-100 text-red-700" },
   logout: { label: "로그아웃", color: "bg-gray-100 text-gray-600" },
   delete: { label: "삭제", color: "bg-orange-100 text-orange-700" },
+  permission: { label: "권한 변경", color: "bg-indigo-100 text-indigo-700" },
 };
 
 export function clientInfo(): { ip: string | null; ua: string | null } {

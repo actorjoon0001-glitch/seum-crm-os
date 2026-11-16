@@ -11,6 +11,7 @@ import { stageColor, type SalesCustomer, type SalesCustomerLog } from "@/lib/sal
 import { getSalespeople } from "@/lib/staff";
 import { dateLabel, kstToday } from "@/lib/kst";
 import AppNav from "@/app/AppNav";
+import { canSee, getAccess } from "@/lib/access";
 import { buildPhoneIndex, otherRefs, SOURCE_NAME } from "@/lib/dedupe";
 import CustomerForm from "../CustomerForm";
 import LogText from "../LogText";
@@ -33,6 +34,8 @@ export default async function CustomerDetail({ searchParams }: { searchParams: {
   ]);
   if (!cRes.data) notFound();
   const c = cRes.data as SalesCustomer;
+  // 다른 전시장 고객은 볼 수 없음 (주소를 직접 입력해도 차단)
+  if (!canSee(await getAccess(), c.assignee)) notFound();
   const logs = (lRes.data ?? []) as SalesCustomerLog[];
   const [salespeople, phoneIdx] = await Promise.all([getSalespeople(supabase, [c.assignee]), buildPhoneIndex(supabase)]);
   const others = otherRefs(phoneIdx, c.phone_digits || c.phone, { kind: "db", id: c.id });

@@ -14,6 +14,8 @@ import { isMissingTable } from "@/lib/db-errors";
 import { SALES_DB_SQL } from "@/lib/sales-db-sql";
 import { GRADES, STAGES, isOpenStage, stageColor, type SalesCustomer, type SalesCustomerLog } from "@/lib/sales-db";
 import { getSalespeople, groupByBranch, NO_BRANCH } from "@/lib/staff";
+import { canSee, getAccess } from "@/lib/access";
+import { logout } from "@/app/login/actions";
 import { addDays, dateLabel, isDateStr, kstToday } from "@/lib/kst";
 import AppNav from "@/app/AppNav";
 import DupBadge from "@/app/DupBadge";
@@ -70,6 +72,22 @@ export default async function SalesDbPage({ searchParams }: { searchParams: Sear
   if (!hasSupabaseEnv()) return shell(<p className="text-sm text-gray-400">Supabase 연결이 필요합니다.</p>);
   const supabase = createServiceClient();
 
+  // 보기 범위 (관리자 = 전체 / 지정된 사람 = 지정 전시장 / 그 외 = 소속 전시장)
+  const access = await getAccess();
+  if (!access.ok) {
+    return shell(
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">
+        <p className="font-semibold">고객 DB · 일지는 세움OS 계정으로 로그인해야 볼 수 있습니다.</p>
+        <p className="mt-1 text-amber-700">포털 자동로그인으로는 누구인지 알 수 없어 전시장별 고객을 보여드릴 수 없어요.</p>
+        <form action={logout} className="mt-3">
+          <button className="rounded-lg bg-gray-900 px-4 py-2 font-semibold text-white">세움OS 계정으로 다시 로그인</button>
+        </form>
+      </div>
+    );
+  }
+  const visibleNames = access.all ? null : Array.from(access.names);
+  if (sp && !canSee(access, sp)) sp = access.self ?? "";
+
   // 전체 고객의 담당자 (탭 건수) + 오늘 기록한 담당자
   const [allRes, todayLogsRes] = await Promise.all([
     supabase.from(CUST).select("assignee").limit(20000),
@@ -95,12 +113,13 @@ export default async function SalesDbPage({ searchParams }: { searchParams: Sear
     countBy.set(r.assignee, (countBy.get(r.assignee) ?? 0) + 1);
   const wroteToday = new Set(((todayLogsRes.data ?? []) as { assignee: string }[]).map((r) => r.assignee));
 
-  const salespeople = await getSalespeople(supabase, Array.from(countBy.keys()));
+  const salespeople = (await getSalespeople(supabase, Array.from(countBy.keys()))).filter((p) => canSee(access, p.name));
   const me = salespeople.find((s) => s.name === sp);
   const notWritten = salespeople.filter((s) => s.fromStaff && !wroteToday.has(s.name));
   const groups = groupByBranch(salespeople);
   // 전시장 보기: 영업사원 미선택 + branch 지정 시 그 전시장 소속 전체
-  const branch = !sp ? (searchParams.branch ?? "").trim() : "";
+  let branch = !sp ? (searchParams.branch ?? "").trim() : "";
+  if (branch && !access.all && !access.branches.includes(branch)) branch = "";
   const branchNames = branch ? (groups.find((g) => g.branch === branch)?.people ?? []).map((p) => p.name) : [];
 
   // 고객 DB 시트
@@ -112,6 +131,7 @@ export default async function SalesDbPage({ searchParams }: { searchParams: Sear
     .limit(2000);
   if (sp) custQ = custQ.eq("assignee", sp);
   else if (branch) custQ = custQ.in("assignee", branchNames.length ? branchNames : ["__none__"]);
+  else if (visibleNames) custQ = custQ.in("assignee", visibleNames.length ? visibleNames : ["__none__"]);
   if (stageFilter) custQ = custQ.eq("stage", stageFilter);
   if (gradeFilter) custQ = custQ.eq("grade", gradeFilter);
   if (q) {
@@ -130,6 +150,7 @@ export default async function SalesDbPage({ searchParams }: { searchParams: Sear
     .limit(1000);
   if (sp) dayQ = dayQ.eq("assignee", sp);
   else if (branch) dayQ = dayQ.in("assignee", branchNames.length ? branchNames : ["__none__"]);
+  else if (visibleNames) dayQ = dayQ.in("assignee", visibleNames.length ? visibleNames : ["__none__"]);
 
   const [custRes, dayRes, visitRes, callRes] = await Promise.all([
     custQ,
@@ -207,10 +228,20 @@ export default async function SalesDbPage({ searchParams }: { searchParams: Sear
       <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
         <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 pb-2">
           <Link href="/admin/logs?sp=" className={tabCls(!sp && !branch)}>
-            👥 전체 <span className="text-xs opacity-70">{allRes.data?.length ?? 0}</span>
+            👥 {access.all ? "전체" : "우리 전시장 전체"}{" "}
+            <span className="text-xs opacity-70">
+              {access.all
+                ? allRes.data?.length ?? 0
+                : Array.from(countBy.entries())
+                    .filter(([n]) => access.names.has(n))
+                    .reduce((a, [, c]) => a + c, 0)}
+            </span>
           </Link>
+          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600" title="관리자가 권한 설정에서 정한 보기 범위">
+            👁 보기 범위: {access.label}
+          </span>
           <span className="text-xs text-gray-500">
-            <span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-500" />오늘 일지 작성 {wroteToday.size}명
+            <span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-500" />오늘 일지 작성 {salespeople.filter((p) => wroteToday.has(p.name)).length}명
             {notWritten.length > 0 && <span className="text-orange-600"> · 미작성 {notWritten.length}명</span>}
             {salespeople.length === 0 && " · 세움OS 직원 명단(영업팀)을 불러오지 못했습니다."}
           </span>
