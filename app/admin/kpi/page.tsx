@@ -24,6 +24,7 @@ import {
   type SalesCustomerLog,
 } from "@/lib/sales-db";
 import { getSalespeople, groupByBranch, NO_BRANCH } from "@/lib/staff";
+import { canSee, getAccess } from "@/lib/access";
 import { dateLabel, isDateStr } from "@/lib/kst";
 import AppNav from "@/app/AppNav";
 import SetupSqlNotice from "@/app/SetupSqlNotice";
@@ -112,9 +113,20 @@ export default async function KpiPage({ searchParams }: { searchParams: Search }
     );
   }
 
-  const allCustomers = (custRes.data ?? []) as SalesCustomer[];
-  const allLogs = (logRes.data ?? []) as SalesCustomerLog[];
-  const staff = await getSalespeople(supabase, Array.from(new Set(allCustomers.map((c) => c.assignee))));
+  // 보기 범위: 관리자 = 전체 / 지정된 사람 = 지정 전시장 / 그 외 = 소속 전시장
+  const access = await getAccess();
+  if (!access.ok) {
+    return shell(
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">
+        KPI는 세움OS 계정으로 로그인해야 볼 수 있습니다.
+      </div>
+    );
+  }
+  const allCustomers = ((custRes.data ?? []) as SalesCustomer[]).filter((c) => canSee(access, c.assignee));
+  const allLogs = ((logRes.data ?? []) as SalesCustomerLog[]).filter((l) => canSee(access, l.assignee));
+  const staff = (await getSalespeople(supabase, Array.from(new Set(allCustomers.map((c) => c.assignee))))).filter((p) =>
+    canSee(access, p.name)
+  );
   const groups = groupByBranch(staff);
   const branchOf = new Map(staff.map((s) => [s.name, s.branch?.trim() || NO_BRANCH]));
   const branch = (searchParams.branch ?? "").trim();
@@ -156,11 +168,12 @@ export default async function KpiPage({ searchParams }: { searchParams: Search }
     <>
       {/* 전시장 필터 */}
       <div className="flex flex-wrap items-center gap-1.5">
+        <span className="mr-1 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600">👁 보기 범위: {access.label}</span>
         <Link
           href={qs({})}
           className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${!branch ? "bg-gray-900 text-white" : "border border-gray-200 bg-white text-gray-600 hover:text-seum"}`}
         >
-          🏢 전체 전시장
+          🏢 {access.all ? "전체 전시장" : "볼 수 있는 전시장 전체"}
         </Link>
         {groups.map((g) => (
           <Link

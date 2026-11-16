@@ -11,6 +11,7 @@ import {
 } from "@/lib/supabase/server";
 import { currentRole, currentUserName, isAuthed } from "@/lib/require-auth";
 import { logActivity } from "@/lib/activity";
+import { canDelete, canSee, getAccess } from "@/lib/access";
 import { COOKIE_OPTS, SP_COOKIE } from "@/lib/auth";
 import { INFLOW_ROUTES, INFLOW_TYPES, isGrade, isStage } from "@/lib/sales-db";
 import { isDateStr, kstDateOf, kstToday } from "@/lib/kst";
@@ -29,6 +30,16 @@ function refresh() {
   revalidatePath("/admin/logs");
   revalidatePath("/admin/logs/customer");
   revalidatePath("/admin/kpi");
+}
+
+// 이 고객에 접근할 수 있는지 (전시장 권한). 삭제는 담당자 본인 · 관리자만
+async function guardCustomer(id: string, opts: { del?: boolean } = {}) {
+  const a = await getAccess();
+  if (!a.ok) throw new Error("세움OS 계정으로 로그인해 주세요.");
+  const { data } = await createServiceClient().from(CUST).select("assignee").eq("id", id).maybeSingle();
+  if (!data) throw new Error("고객을 찾을 수 없습니다.");
+  if (!canSee(a, data.assignee)) throw new Error("다른 전시장 고객은 볼 수 없습니다.");
+  if (opts.del && !canDelete(a, data.assignee)) throw new Error("삭제는 담당자 본인 또는 관리자만 할 수 있습니다.");
 }
 
 function rememberSp(name: string) {
@@ -146,6 +157,9 @@ export async function createCustomer(prev: FormResult | null, formData: FormData
   if (!(await isAuthed())) return { ok: false, error: "로그인이 필요합니다." };
   const c = readCustomerForm(formData);
   if (typeof c === "string") return { ok: false, error: c };
+  const a = await getAccess();
+  if (!a.ok) return { ok: false, error: "세움OS 계정으로 로그인해 주세요." };
+  if (!canSee(a, c.assignee)) return { ok: false, error: "다른 전시장 영업사원으로는 등록할 수 없습니다." };
   const res = await insertCustomer(createServiceClient(), c);
   if (res.ok) {
     rememberSp(c.assignee);
@@ -160,6 +174,12 @@ export async function updateCustomer(prev: FormResult | null, formData: FormData
   const id = String(formData.get("id") ?? "");
   const c = readCustomerForm(formData);
   if (typeof c === "string") return { ok: false, error: c };
+  try {
+    await guardCustomer(id);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "권한이 없습니다." };
+  }
+  if (!canSee(await getAccess(), c.assignee)) return { ok: false, error: "다른 전시장 영업사원에게는 넘길 수 없습니다." };
   const supabase = createServiceClient();
   const { data: cur, error: e1 } = await supabase.from(CUST).select("*").eq("id", id).single();
   if (e1) return { ok: false, error: e1.message };
@@ -202,6 +222,7 @@ export async function updateCustomer(prev: FormResult | null, formData: FormData
 // 목록에서 진행단계 변경 → 일지 기록
 export async function changeStage(id: string, stage: string) {
   if (!(await isAuthed())) throw new Error("로그인이 필요합니다.");
+  await guardCustomer(id);
   if (!isStage(stage)) throw new Error("잘못된 진행단계입니다.");
   const supabase = createServiceClient();
   const { data: cur, error: e1 } = await supabase.from(CUST).select("stage,assignee").eq("id", id).single();
@@ -227,6 +248,7 @@ export async function changeStage(id: string, stage: string) {
 // 목록에서 고객등급 변경 → 일지 기록
 export async function changeGrade(id: string, grade: string) {
   if (!(await isAuthed())) throw new Error("로그인이 필요합니다.");
+  await guardCustomer(id);
   if (grade && !isGrade(grade)) throw new Error("잘못된 고객등급입니다.");
   const supabase = createServiceClient();
   const { data: cur, error: e1 } = await supabase.from(CUST).select("*").eq("id", id).single();
@@ -253,6 +275,7 @@ export async function changeGrade(id: string, grade: string) {
 // 오늘 상담 내용 기록 (+ 다음 연락일)
 export async function addNote(id: string, note: string, nextDate?: string) {
   if (!(await isAuthed())) throw new Error("로그인이 필요합니다.");
+  await guardCustomer(id);
   const text = note.trim();
   if (!text) return;
   const supabase = createServiceClient();
@@ -279,6 +302,7 @@ export async function addNote(id: string, note: string, nextDate?: string) {
 
 export async function setNextDate(id: string, date: string) {
   if (!(await isAuthed())) throw new Error("로그인이 필요합니다.");
+  await guardCustomer(id);
   if (date && !isDateStr(date)) throw new Error("날짜 형식 오류");
   const supabase = createServiceClient();
   const { error } = await supabase
@@ -291,6 +315,7 @@ export async function setNextDate(id: string, date: string) {
 
 export async function deleteCustomer(id: string) {
   if (!(await isAuthed())) throw new Error("로그인이 필요합니다.");
+  await guardCustomer(id, { del: true });
   const supabase = createServiceClient();
   const { data: cur } = await supabase.from(CUST).select("db_no,customer_name,assignee").eq("id", id).single();
   const { error } = await supabase.from(CUST).delete().eq("id", id);
@@ -306,6 +331,7 @@ export async function deleteCustomer(id: string) {
 // 방문예약 / 전화 고객에서 배정된 고객을 내 고객 DB로 가져오기
 export async function importAssigned(ref: string, assignee: string, branch: string): Promise<FormResult> {
   if (!(await isAuthed())) return { ok: false, error: "로그인이 필요합니다." };
+  if (!canSee(await getAccess(), assignee)) return { ok: false, error: "다른 전시장 영업사원의 DB에는 추가할 수 없습니다." };
   const [kind, srcId] = ref.split(":");
   const supabase = createServiceClient();
   const base = {

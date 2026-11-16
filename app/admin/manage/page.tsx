@@ -17,6 +17,9 @@ import AppNav from "@/app/AppNav";
 import SetupSqlNotice from "@/app/SetupSqlNotice";
 import JandiSettings, { type UrlState } from "./JandiSettings";
 import { setPendingSince } from "./actions";
+import AccessSettings, { type AccessRow } from "./AccessSettings";
+import { getAccessSetting } from "@/lib/access";
+import { SHOWROOM_LABEL, showroomLabel } from "@/lib/types";
 import { getVisitPendingSince } from "@/lib/visit-pending-since";
 import { getJandiConfig, getJandiState } from "@/lib/settings";
 import { SETTINGS_SQL } from "@/lib/settings-sql";
@@ -107,7 +110,17 @@ export default async function ManagePage({ searchParams }: { searchParams: Searc
     supabase.from(SALES_CUSTOMERS_TABLE).select("grade").limit(1),
     supabase.from("employees").select("*").limit(2000),
   ]);
-  type Emp = { name: string | null; team: string | null; role: string | null; permission: string | null; status: string | null; email: string | null };
+  type Emp = {
+    id: number | string;
+    name: string | null;
+    team: string | null;
+    role: string | null;
+    permission: string | null;
+    status: string | null;
+    email: string | null;
+    showroom: string | null;
+    position_name: string | null;
+  };
   const employees = (empRes.data ?? []) as Emp[];
   const approved = employees.filter((e) => !e.status || e.status === "approved");
   const pendingEmp = employees.filter((e) => e.status === "pending");
@@ -132,6 +145,30 @@ export default async function ManagePage({ searchParams }: { searchParams: Searc
     getJandiState(),
   ]);
   const allBranches = await getBranches(supabase);
+  // 고객DB 보기 권한 표
+  const { value: accessSetting } = await getAccessSetting();
+  const accessRows: AccessRow[] = approved
+    .filter((e) => e.name?.trim())
+    .map((e) => {
+      const g = accessSetting.users?.[String(e.id)];
+      return {
+        id: String(e.id),
+        name: e.name!.trim(),
+        team: e.team,
+        position: e.position_name,
+        branch: e.showroom ? SHOWROOM_LABEL[e.showroom] ?? showroomLabel(e.showroom) : null,
+        isAdmin: isOwnerEmployee(e),
+        scope: (g?.scope ?? "own") as AccessRow["scope"],
+        branches: g?.branches ?? [],
+      };
+    })
+    .sort(
+      (a, b) =>
+        Number(b.isAdmin) - Number(a.isAdmin) ||
+        Number((b.team ?? "").includes("영업")) - Number((a.team ?? "").includes("영업")) ||
+        (a.branch ?? "힣").localeCompare(b.branch ?? "힣", "ko") ||
+        a.name.localeCompare(b.name, "ko")
+    );
   const pendingSetting = await getVisitPendingSince(supabase);
   const { data: recentVisits } = await supabase
     .from(VISITS_TABLE)
@@ -331,6 +368,17 @@ export default async function ManagePage({ searchParams }: { searchParams: Searc
             </tbody>
           </table>
         </div>
+      </section>
+
+      {/* 고객DB 보기 권한 */}
+      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <h2 className="text-sm font-bold">🔑 고객DB · 일지 · KPI 보기 권한</h2>
+        <p className="mb-3 mt-0.5 text-xs text-gray-500">
+          기본은 <b>자기 소속 전시장만</b> 보입니다. 다른 전시장까지 봐야 하는 사람만 여기서 넓혀 주세요. 관리자(admin)는 항상
+          전체입니다. 삭제는 담당자 본인과 관리자만 할 수 있습니다. 포털 자동로그인으로 들어온 사람은 세움OS 계정 로그인이
+          필요합니다.
+        </p>
+        <AccessSettings rows={accessRows} allBranches={allBranches} />
       </section>
 
       {/* 세움OS 계정 현황 */}

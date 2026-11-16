@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { isOwner } from "@/lib/require-auth";
-import { DEFAULT_JANDI, getJandiConfig, setSetting, type JandiConfig } from "@/lib/settings";
+import { currentUserName, isOwner } from "@/lib/require-auth";
+import { logActivity } from "@/lib/activity";
+import { DEFAULT_JANDI, getJandiConfig, getSetting, setSetting, type JandiConfig } from "@/lib/settings";
 import { appUrl, sendJandi, validJandiUrl } from "@/lib/jandi";
 import { sendDailyBrief } from "@/lib/alerts";
 import { createServiceClient, VISITS_TABLE } from "@/lib/supabase/server";
@@ -116,4 +117,31 @@ export async function setPendingSince(formData: FormData): Promise<void> {
   revalidatePath("/");
   revalidatePath("/admin/visits");
   revalidatePath("/admin/manage");
+}
+
+// 고객DB · 일지 · KPI 보기 권한 저장 (관리자만)
+export async function saveAccess(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  if (!(await isOwner())) return { ok: false, error: "관리자만 설정할 수 있습니다." };
+  const users: Record<string, { scope: "all" | "branches"; branches?: string[] }> = {};
+  const changes: string[] = [];
+  for (let i = 0; formData.has(`eid_${i}`); i++) {
+    const eid = String(formData.get(`eid_${i}`) ?? "");
+    const scope = String(formData.get(`scope_${i}`) ?? "own");
+    if (!eid) continue;
+    if (scope === "all") users[eid] = { scope: "all" };
+    else if (scope === "branches") {
+      const branches = formData.getAll(`br_${i}`).map(String).filter(Boolean);
+      users[eid] = { scope: "branches", branches };
+    }
+  }
+  const { value: prev } = await getSetting<{ users: Record<string, unknown> }>("access", { users: {} });
+  const before = JSON.stringify(prev.users ?? {});
+  const err = await setSetting("access", { users });
+  if (err) return { ok: false, error: err };
+  if (before !== JSON.stringify(users)) changes.push(`넓은 권한 ${Object.keys(users).length}명`);
+  if (changes.length) await logActivity("permission", { actor: await currentUserName(), role: "owner", detail: `고객DB 보기 권한 변경 · ${changes.join(", ")}` });
+  revalidatePath("/admin/manage");
+  revalidatePath("/admin/logs");
+  revalidatePath("/admin/kpi");
+  return { ok: true, message: "권한이 저장되었습니다. 바로 적용됩니다." };
 }
