@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { saveAccess, type ActionResult } from "./actions";
 
@@ -92,14 +92,27 @@ export default function AccessSettings({ rows, allBranches }: { rows: AccessRow[
             <tr>
               <th className="px-2 py-1.5 font-medium">이름</th>
               <th className="px-2 py-1.5 font-medium">팀</th>
-              <th className="px-2 py-1.5 font-medium">소속 전시장</th>
+              <th className="px-2 py-1.5 font-medium">소속</th>
               <th className="px-2 py-1.5 font-medium">보기 범위</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {rows.map((r, i) =>
               shown.includes(r) ? (
-                <Row key={r.id} r={r} i={i} allBranches={allBranches} />
+                <Fragment key={r.id}>
+                  {/* 전시장이 바뀌는 곳마다 전시장 제목 줄 */}
+                  {(shown.indexOf(r) === 0 || shown[shown.indexOf(r) - 1].branch !== r.branch) && (
+                    <tr className="bg-seum-light/60">
+                      <td colSpan={4} className="px-2 py-1.5 text-xs font-bold text-seum-dark">
+                        🏢 {r.branch ?? "전시장 미지정"}{" "}
+                        <span className="font-medium text-gray-500">
+                          {rows.filter((x) => x.branch === r.branch).length}명
+                        </span>
+                      </td>
+                    </tr>
+                  )}
+                  <Row r={r} i={i} allBranches={allBranches} />
+                </Fragment>
               ) : (
                 // 검색으로 가려진 행도 기존 값이 유지되도록 숨겨서 전송
                 <tr key={r.id} className="hidden">
