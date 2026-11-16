@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createServiceClient, VISITS_TABLE } from "@/lib/supabase/server";
 import { currentRole, currentUserName, isAuthed } from "@/lib/require-auth";
 import { logActivity } from "@/lib/activity";
+import { notifyVisitHandoff } from "@/lib/alerts";
 
 export async function updateVisitStatus(id: string, status: string) {
   if (!(await isAuthed())) throw new Error("로그인이 필요합니다.");
@@ -77,4 +78,36 @@ export async function deleteVisit(id: string) {
     detail: `방문예약 ${cur?.name ?? ""} ${cur?.phone ?? ""} (방문일 ${cur?.visit_date ?? "-"})`,
   });
   revalidatePath("/admin/visits");
+}
+
+// 방문예약을 전시장으로 넘기기 (payload.handoffBranch) → 그 전시장 잔디 영업팀 토픽 알림
+export async function updateVisitBranch(id: string, branch: string) {
+  if (!(await isAuthed())) throw new Error("로그인이 필요합니다.");
+  const b = branch.trim().slice(0, 40);
+  const supabase = createServiceClient();
+  const { data, error: selErr } = await supabase.from(VISITS_TABLE).select("*").eq("id", id).single();
+  if (selErr) throw new Error(selErr.message);
+
+  let payload: Record<string, unknown> = {};
+  const raw = (data as { payload?: unknown }).payload;
+  if (raw && typeof raw === "object") payload = { ...(raw as Record<string, unknown>) };
+  else if (typeof raw === "string") {
+    try {
+      payload = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      payload = {};
+    }
+  }
+  if (b) {
+    payload.handoffBranch = b;
+    payload.handoffAt = new Date().toISOString();
+  } else {
+    delete payload.handoffBranch;
+    delete payload.handoffAt;
+  }
+  const { error } = await supabase.from(VISITS_TABLE).update({ payload }).eq("id", id);
+  if (error) throw new Error(error.message);
+  if (b) await notifyVisitHandoff({ ...data, payload }, b, await currentUserName());
+  revalidatePath("/admin/visits");
+  revalidatePath("/");
 }
