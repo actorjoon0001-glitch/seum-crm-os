@@ -220,19 +220,19 @@ export default async function Home({ searchParams }: { searchParams: { month?: s
         .limit(3000);
       return ((data ?? []) as VisitReservation[]).filter((r) => isResultPending(r, today, pendingSince)).length;
     };
-    // 3개 카테고리 사이 같은 연락처(중복) 수
+    // 방문예약 · 대표번호 사이 같은 연락처(중복) 수
     const dupCount = async () => {
       const idx = await buildPhoneIndex(supabase);
       let n = 0;
       for (const refs of Array.from(idx.values())) {
-        const lead = refs.filter((r) => r.kind !== "db").length;
+        const lead = refs.filter((r) => r.kind === "visit" || r.kind === "main").length;
         if (lead > 1) n += lead - 1;
       }
       return n;
     };
 
     [columns, journal, calRows, pendingVisits, duplicates] = await Promise.all([
-      Promise.all([visitColumn(), callColumn("main"), callColumn("mobile")]),
+      Promise.all([visitColumn(), callColumn("main")]),
       journalStats(),
       calendarRows(),
       pendingCount(),
@@ -337,8 +337,8 @@ export default async function Home({ searchParams }: { searchParams: { month?: s
             />
           </section>
 
-          {/* 3개 카테고리 한눈에 */}
-          <div className="mt-5 grid gap-4 lg:grid-cols-3">
+          {/* 방문예약 · 대표번호 한눈에 */}
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
             {columns.map((c) => (
               <CategoryCard key={c.key} col={c} />
             ))}
