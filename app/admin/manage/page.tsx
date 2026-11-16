@@ -162,13 +162,23 @@ export default async function ManagePage({ searchParams }: { searchParams: Searc
         branches: g?.branches ?? [],
       };
     })
-    .sort(
-      (a, b) =>
-        Number(b.isAdmin) - Number(a.isAdmin) ||
-        Number((b.team ?? "").includes("영업")) - Number((a.team ?? "").includes("영업")) ||
-        (a.branch ?? "힣").localeCompare(b.branch ?? "힣", "ko") ||
+    // 전시장 순서(서울마곡지사 → 본사 → 1 → 3 → 강화 → 광주 → 안동 → 기타 → 미지정)로 묶고,
+    // 전시장 안에서는 영업 → 그 외 팀, 이름 순
+    .sort((a, b) => {
+      const rank = (r: AccessRow) => {
+        if (!r.branch) return 10000;
+        const i = allBranches.indexOf(r.branch);
+        return i >= 0 ? i : 5000;
+      };
+      const sales = (r: AccessRow) => ((r.team ?? "").includes("영업") ? 0 : 1);
+      return (
+        rank(a) - rank(b) ||
+        (a.branch ?? "").localeCompare(b.branch ?? "", "ko") ||
+        sales(a) - sales(b) ||
+        (a.team ?? "").localeCompare(b.team ?? "", "ko") ||
         a.name.localeCompare(b.name, "ko")
-    );
+      );
+    });
   const pendingSetting = await getVisitPendingSince(supabase);
   const { data: recentVisits } = await supabase
     .from(VISITS_TABLE)
