@@ -2,7 +2,7 @@
 
 import { useFormState, useFormStatus } from "react-dom";
 import { createCustomer, updateCustomer, type FormResult } from "./actions";
-import { GRADES, INFLOW_ROUTES, INFLOW_TYPES, STAGES, type SalesCustomer } from "@/lib/sales-db";
+import { GRADES, INFLOW_ROUTES, INFLOW_TYPE_DESC, INFLOW_TYPES, STAGES, type SalesCustomer } from "@/lib/sales-db";
 import GradeLegend from "./GradeLegend";
 import type { Salesperson } from "@/lib/staff";
 
@@ -91,7 +91,9 @@ export default function CustomerForm({
               <span className={lbl}>*유입구분</span>
               <select name="inflow_type" defaultValue={c?.inflow_type ?? "개별"} className={input}>
                 {INFLOW_TYPES.map((v) => (
-                  <option key={v}>{v}</option>
+                  <option key={v} value={v}>
+                    {v} · {INFLOW_TYPE_DESC[v]}
+                  </option>
                 ))}
               </select>
             </label>
