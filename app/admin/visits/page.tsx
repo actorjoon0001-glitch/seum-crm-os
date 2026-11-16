@@ -317,6 +317,10 @@ export default async function VisitsPage({
                               const v = getPayload(r)?.handoffAt;
                               return typeof v === "string" ? v : null;
                             })()}
+                            handedBy={(() => {
+                              const v = getPayload(r)?.handoffBy;
+                              return typeof v === "string" ? v : null;
+                            })()}
                             branches={branches}
                           />
                         </td>
