@@ -39,6 +39,11 @@ export interface SalesCustomerLog {
 
 // *유입구분
 export const INFLOW_TYPES = ["배정", "개별"] as const;
+// 유입구분 설명 (선택칸에 함께 표시)
+export const INFLOW_TYPE_DESC: Record<(typeof INFLOW_TYPES)[number], string> = {
+  배정: "회사에서 넘겨준 고객 (대표번호 · 온라인예약 등)",
+  개별: "개인 영업폰으로 전화 온 고객",
+};
 
 // *유입경로
 export const INFLOW_ROUTES = [
