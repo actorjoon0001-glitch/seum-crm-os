@@ -82,16 +82,26 @@ export async function testJandi(target: string): Promise<ActionResult> {
   return r.ok ? { ok: true, message: "테스트 메시지를 보냈습니다. 잔디를 확인해 주세요." } : { ok: false, error: r.error };
 }
 
-// 아침 브리핑을 지금 바로 보내기 (미리 확인용)
-export async function sendBriefNow(): Promise<ActionResult> {
+// 아침 브리핑을 지금 바로 보내기 (미리 확인용) — 고른 토픽에만 보냄
+// targets: "team" / "admin" / 전시장 이름
+export async function sendBriefNow(targets: string[] = []): Promise<ActionResult> {
   if (!(await isOwner())) return { ok: false, error: "관리자만 가능합니다." };
+  const pick = new Set((Array.isArray(targets) ? targets : []).map((t) => String(t)));
+  if (pick.size === 0) return { ok: false, error: "보낼 곳을 하나 이상 골라 주세요." };
   const { value: cfg } = await getJandiConfig();
-  const any =
-    validJandiUrl(cfg.teamUrl) || validJandiUrl(cfg.adminUrl) || Object.values(cfg.branchUrls ?? {}).some((u) => validJandiUrl(u));
-  if (!any) return { ok: false, error: "먼저 웹훅 URL을 저장해 주세요." };
+  const branchUrls: Record<string, string> = {};
+  for (const [b, u] of Object.entries(cfg.branchUrls ?? {})) if (pick.has(b) && validJandiUrl(u)) branchUrls[b] = u;
+  const only = {
+    ...cfg,
+    teamUrl: pick.has("team") ? cfg.teamUrl : "",
+    adminUrl: pick.has("admin") ? cfg.adminUrl : "",
+    branchUrls,
+  };
+  const any = validJandiUrl(only.teamUrl) || validJandiUrl(only.adminUrl) || Object.keys(branchUrls).length > 0;
+  if (!any) return { ok: false, error: "고른 곳에 연결된 웹훅이 없습니다." };
   const report: string[] = [];
-  await sendDailyBrief({ ...cfg, brief: true, admin: true }, report);
-  return { ok: true, message: report.join(" · ") || "보낼 대상이 없습니다." };
+  await sendDailyBrief({ ...only, brief: true, admin: true }, report);
+  return { ok: true, message: report.join(" · ") || "보낼 내용이 없습니다." };
 }
 
 // 방문 결과 미입력 추적 기준 변경

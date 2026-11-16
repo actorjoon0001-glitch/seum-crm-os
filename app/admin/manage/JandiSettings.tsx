@@ -101,6 +101,14 @@ export default function JandiSettings({
   const [state, action] = useFormState<ActionResult | null, FormData>(saveJandi, null);
   const [briefMsg, setBriefMsg] = useState<ActionResult | null>(null);
   const [briefPending, startBrief] = useTransition();
+  // 브리핑 미리 보내기 대상 (연결된 토픽만)
+  const briefTargets: { key: string; label: string }[] = [
+    ...branches.filter((b) => b.state.set).map((b) => ({ key: b.branch, label: b.branch })),
+    ...(admin.set ? [{ key: "admin", label: "관리자 토픽" }] : []),
+    ...(team.set ? [{ key: "team", label: "전체 영업팀 토픽" }] : []),
+  ];
+  const [picked, setPicked] = useState<string[]>([]);
+  const toggle = (k: string) => setPicked((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p, k]));
 
   return (
     <form action={action} className="space-y-4">
@@ -158,15 +166,53 @@ export default function JandiSettings({
         ))}
       </div>
 
+      <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/60 p-2.5">
+        <div className="mb-1.5 flex items-center gap-2 text-xs">
+          <b className="text-gray-700">브리핑 미리 보내볼 곳</b>
+          <span className="text-gray-400">고른 토픽에만 지금 보냅니다</span>
+          {briefTargets.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setPicked(picked.length === briefTargets.length ? [] : briefTargets.map((t) => t.key))}
+              className="ml-auto text-[11px] font-semibold text-seum hover:underline"
+            >
+              {picked.length === briefTargets.length ? "전체 해제" : "전체 선택"}
+            </button>
+          )}
+        </div>
+        {briefTargets.length === 0 ? (
+          <p className="text-xs text-gray-400">연결된 토픽이 없습니다.</p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {briefTargets.map((t) => {
+              const on = picked.includes(t.key);
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => toggle(t.key)}
+                  className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                    on ? "border-seum bg-seum text-white" : "border-gray-300 bg-white text-gray-600 hover:border-seum"
+                  }`}
+                >
+                  {on ? "✓ " : ""}
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       <div className="flex flex-wrap items-center gap-2">
         <Save />
         <button
           type="button"
-          disabled={briefPending || !(team.set || admin.set || branches.some((b) => b.state.set))}
-          onClick={() => startBrief(async () => setBriefMsg(await sendBriefNow()))}
+          disabled={briefPending || picked.length === 0}
+          onClick={() => startBrief(async () => setBriefMsg(await sendBriefNow(picked)))}
           className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:border-seum hover:text-seum disabled:opacity-40"
         >
-          {briefPending ? "보내는 중…" : "아침 브리핑 지금 보내보기"}
+          {briefPending ? "보내는 중…" : `아침 브리핑 지금 보내보기${picked.length ? ` (${picked.length}곳)` : ""}`}
         </button>
         {state?.error && <span className="text-sm text-red-600">{state.error}</span>}
         {state?.ok && <span className="text-sm text-green-600">✓ {state.message}</span>}
