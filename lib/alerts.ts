@@ -118,10 +118,9 @@ export async function runTick(): Promise<{ ok: boolean; report: string[] }> {
   const jobs: Promise<void>[] = [];
   for (const r of newVisits) {
     const { msg, branch } = newVisitMessage(r);
-    // 고객이 고른 전시장 토픽으로. 전체 영업팀 토픽이 따로 있으면 거기에도 함께 올림
+    // 고객이 고른 전시장 토픽으로만 (전시장 토픽이 없을 때만 전체 영업팀 → 관리자 토픽으로 대신)
     const route = routeUrl(cfg, branch);
     jobs.push(sendTo(route.url, msg, report, `새 방문예약(${route.label})`));
-    if (route.url !== cfg.teamUrl && validJandiUrl(cfg.teamUrl)) jobs.push(sendTo(cfg.teamUrl, msg, report, "새 방문예약(영업팀)"));
   }
   if (briefDue) jobs.push(sendDailyBrief(cfg, report));
   if (fails.length) {
@@ -178,8 +177,8 @@ export async function notifyNewCall(
     }
     const route = routeUrl(cfg, branch);
     const msg = newCallMessage(c, by);
+    // 전시장 토픽으로만 (전체 영업팀 토픽에 중복으로 올리지 않음)
     if (route.url) await sendJandi(route.url, msg);
-    if (route.url !== cfg.teamUrl && validJandiUrl(cfg.teamUrl)) await sendJandi(cfg.teamUrl, msg);
   } catch {
     /* 알림 실패는 등록에 영향 없음 */
   }
