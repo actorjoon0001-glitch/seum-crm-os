@@ -105,7 +105,6 @@ export default function JandiSettings({
   const briefTargets: { key: string; label: string }[] = [
     ...branches.filter((b) => b.state.set).map((b) => ({ key: b.branch, label: b.branch })),
     ...(admin.set ? [{ key: "admin", label: "관리자 토픽" }] : []),
-    ...(team.set ? [{ key: "team", label: "전체 영업팀 토픽" }] : []),
   ];
   const [picked, setPicked] = useState<string[]>([]);
   const toggle = (k: string) => setPicked((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p, k]));
@@ -130,7 +129,7 @@ export default function JandiSettings({
 
       <div className="space-y-2 rounded-lg border border-gray-200 p-3">
         <UrlRow name="adminUrl" label="관리자 토픽" hint="관리자 요약 · 로그인 실패 경고 · 전시장 미선택 예약" state={admin} target="admin" />
-        <UrlRow name="teamUrl" label="전체 영업팀 토픽 (선택)" hint="전체 아침 브리핑 · 전시장 토픽이 없을 때 대신 받음" state={team} target="team" />
+        <UrlRow name="teamUrl" label="전체 영업팀 토픽 (선택)" hint="전시장 토픽이 연결 안 된 곳의 알림만 대신 받음" state={team} target="team" />
       </div>
 
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
