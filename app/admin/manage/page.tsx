@@ -16,6 +16,8 @@ import { addDays, dateLabel, kstDayStartISO, kstToday } from "@/lib/kst";
 import AppNav from "@/app/AppNav";
 import SetupSqlNotice from "@/app/SetupSqlNotice";
 import JandiSettings, { type UrlState } from "./JandiSettings";
+import TelegramSettings from "./TelegramSettings";
+import { getDetectedChats, getTelegramConfig, tgReady } from "@/lib/telegram";
 import { setPendingSince } from "./actions";
 import AccessSettings, { type AccessRow } from "./AccessSettings";
 import { getAccessSetting } from "@/lib/access";
@@ -145,6 +147,8 @@ export default async function ManagePage({ searchParams }: { searchParams: Searc
     getJandiState(),
   ]);
   const allBranches = await getBranches(supabase);
+  const [{ value: tg }, tgDetected] = await Promise.all([getTelegramConfig(), getDetectedChats()]);
+  const tgOn = tgReady(tg);
   // 고객DB 보기 권한 표
   const { value: accessSetting } = await getAccessSetting();
   const accessRows: AccessRow[] = approved
@@ -228,7 +232,12 @@ export default async function ManagePage({ searchParams }: { searchParams: Searc
     },
     { label: "잔디 관리자 토픽 연결", ok: validJandiUrl(jandi.adminUrl) },
     {
-      label: "잔디 자동 실행 (5분마다)",
+      label: `텔레그램 알림봇${tgOn ? ` @${tg.botUsername}` : ""} (전시장 방 ${Object.values(tg.chats ?? {}).filter(Boolean).length}곳)`,
+      ok: tgOn && Object.values(tg.chats ?? {}).some(Boolean),
+      note: tgOn ? undefined : "미연결 — 아래 텔레그램 알림에서 봇 토큰을 넣어 주세요",
+    },
+    {
+      label: "알림 자동 실행 (5분마다)",
       ok: !!jandiState.lastTickAt && Date.now() - Date.parse(jandiState.lastTickAt) < 30 * 60 * 1000,
       note: jandiState.lastTickAt ? undefined : "아직 실행 기록 없음 — 배포 후 웹훅을 저장하면 5분 안에 시작됩니다",
     },
@@ -291,6 +300,32 @@ export default async function ManagePage({ searchParams }: { searchParams: Searc
             lastTickAt={jandiState.lastTickAt}
             lastBriefDate={jandiState.lastBriefDate}
             recent={jandiState.recent ?? []}
+            tgBranches={tgOn ? Object.entries(tg.chats ?? {}).filter(([, c]) => !!c).map(([b]) => b) : []}
+            tgAdmin={tgOn && !!tg.adminChat}
+          />
+        )}
+      </section>
+
+      {/* 텔레그램 알림 */}
+      <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+        <h2 className="text-sm font-bold">✈️ 텔레그램 알림</h2>
+        <p className="mb-3 text-xs text-gray-500">
+          무료 · 인원 제한 없음. 전시장 단톡방으로 고객 알림이 가고, 직원이 <b>✅ 확인 · 📞 연락완료</b> 버튼을 누르면 누가 몇 시에
+          눌렀는지 기록됩니다. 잔디와 동시에 쓸 수 있습니다.
+        </p>
+        {settingsMissing ? (
+          <p className="text-xs text-gray-400">위 설정 테이블을 먼저 만들어 주세요.</p>
+        ) : (
+          <TelegramSettings
+            connected={tgOn}
+            botUsername={tg.botUsername}
+            tokenTail={(tg.token ?? "").slice(-4)}
+            branches={allBranches}
+            chats={tg.chats ?? {}}
+            adminChat={tg.adminChat ?? ""}
+            detected={tgDetected.map((c) => ({ id: c.id, title: c.title }))}
+            maskPhone={!!tg.maskPhone}
+            remindMin={tg.remindMin ?? 30}
           />
         )}
       </section>

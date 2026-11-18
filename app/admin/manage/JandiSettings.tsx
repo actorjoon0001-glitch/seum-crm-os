@@ -87,6 +87,8 @@ export default function JandiSettings({
   lastTickAt,
   lastBriefDate,
   recent = [],
+  tgBranches = [],
+  tgAdmin = false,
 }: {
   team: UrlState;
   admin: UrlState;
@@ -97,14 +99,17 @@ export default function JandiSettings({
   lastTickAt?: string;
   lastBriefDate?: string;
   recent?: { at: string; text: string }[];
+  tgBranches?: string[];
+  tgAdmin?: boolean;
 }) {
   const [state, action] = useFormState<ActionResult | null, FormData>(saveJandi, null);
   const [briefMsg, setBriefMsg] = useState<ActionResult | null>(null);
   const [briefPending, startBrief] = useTransition();
   // 브리핑 미리 보내기 대상 (연결된 토픽만)
+  // 잔디 또는 텔레그램이 연결된 곳
   const briefTargets: { key: string; label: string }[] = [
-    ...branches.filter((b) => b.state.set).map((b) => ({ key: b.branch, label: b.branch })),
-    ...(admin.set ? [{ key: "admin", label: "관리자 토픽" }] : []),
+    ...branches.filter((b) => b.state.set || tgBranches.includes(b.branch)).map((b) => ({ key: b.branch, label: b.branch })),
+    ...(admin.set || tgAdmin ? [{ key: "admin", label: "관리자" }] : []),
   ];
   const [picked, setPicked] = useState<string[]>([]);
   const toggle = (k: string) => setPicked((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p, k]));
@@ -168,7 +173,7 @@ export default function JandiSettings({
       <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50/60 p-2.5">
         <div className="mb-1.5 flex items-center gap-2 text-xs">
           <b className="text-gray-700">브리핑 미리 보내볼 곳</b>
-          <span className="text-gray-400">고른 토픽에만 지금 보냅니다</span>
+          <span className="text-gray-400">고른 곳에만 지금 보냅니다 (잔디 · 텔레그램 연결된 방 모두)</span>
           {briefTargets.length > 0 && (
             <button
               type="button"

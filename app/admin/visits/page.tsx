@@ -1,4 +1,6 @@
 import Link from "next/link";
+import AckLine from "@/app/admin/AckLine";
+import { getRecentAcks } from "@/lib/acks";
 import {
   createServiceClient,
   hasSupabaseEnv,
@@ -83,7 +85,7 @@ export default async function VisitsPage({
   // 같은 연락처가 다른 곳(대표번호·영업폰·고객DB·다른 방문예약)에도 있는지
   const phoneIdx = await buildPhoneIndex(supabase);
   // 넘길 전시장 목록 (세움OS 전시장)
-  const branches = await getBranches(supabase);
+  const [branches, acks] = await Promise.all([getBranches(supabase), getRecentAcks("v")]);
 
   // 전시장 목록(필터) — payload에서 추출
   const { data: allRows } = await supabase
@@ -323,6 +325,7 @@ export default async function VisitsPage({
                             })()}
                             branches={branches}
                           />
+                          <AckLine ack={acks.get(String(r.id))} />
                         </td>
                         <td className="px-2.5 py-2 align-top">
                           <StaffMemoInput id={r.id} value={staffMemo} />

@@ -9,6 +9,8 @@ import { ACTIVITY_TABLE } from "@/lib/activity";
 import { kstToday } from "@/lib/kst";
 import { getSalespeople } from "@/lib/staff";
 import type { CallLead } from "@/lib/types";
+import { getTelegramConfig, sendTelegram, tgReady } from "@/lib/telegram";
+import { remindUnacked, tgNotify } from "@/lib/acks";
 
 const KST = 9 * 3600 * 1000;
 
@@ -23,19 +25,47 @@ async function sendTo(url: string | undefined, msg: JandiMessage, report: string
   report.push(`${label}: ${r.ok ? "전송" : `실패(${r.error})`}`);
 }
 
-// 아침 브리핑 전송 (전시장별 + 관리자) — 토픽별 동시 전송으로 빠르게
+// 아침 브리핑 전송 (전시장별 + 관리자, 잔디 · 텔레그램) — 토픽별 동시 전송으로 빠르게
 // 전체 영업팀 토픽으로는 보내지 않음 (전시장마다 자기 토픽으로 받음)
-export async function sendDailyBrief(cfg: JandiConfig, report: string[]) {
+// pick: 지정하면 그 전시장 이름 / "admin" 에만 보냄 (미리 보내기용)
+export async function sendDailyBrief(cfg: JandiConfig, report: string[], pick?: Set<string>) {
   const brief = await buildDailyBrief(createServiceClient());
+  const want = (k: string) => !pick || pick.has(k);
   const jobs: Promise<void>[] = [];
   if (cfg.brief) {
     for (const [branch, url] of Object.entries(cfg.branchUrls ?? {})) {
       const msg = brief.branches.get(branch);
-      if (msg) jobs.push(sendTo(url, msg, report, `브리핑(${branch})`));
+      if (msg && want(branch)) jobs.push(sendTo(url, msg, report, `브리핑(${branch})`));
     }
   }
-  if (cfg.admin) jobs.push(sendTo(cfg.adminUrl, brief.admin, report, "관리자 요약"));
+  if (cfg.admin && want("admin")) jobs.push(sendTo(cfg.adminUrl, brief.admin, report, "관리자 요약"));
+
+  const { value: tg, missing } = await getTelegramConfig();
+  if (!missing && tgReady(tg)) {
+    const tgSend = async (chat: string, msg: JandiMessage, label: string) => {
+      const r = await sendTelegram(tg, chat, msg);
+      report.push(`텔레그램 ${label}: ${r.ok ? "전송" : `실패(${r.error})`}`);
+    };
+    if (cfg.brief)
+      for (const [branch, chat] of Object.entries(tg.chats ?? {})) {
+        const msg = brief.branches.get(branch);
+        if (chat && msg && want(branch)) jobs.push(tgSend(chat, msg, `브리핑(${branch})`));
+      }
+    if (cfg.admin && tg.adminChat && want("admin")) jobs.push(tgSend(tg.adminChat, brief.admin, "관리자 요약"));
+  }
   await Promise.all(jobs);
+}
+
+// 방문예약 고객 이름 (payload 우선)
+function vName(r: VisitReservation): string | undefined {
+  const p = (r as { payload?: unknown }).payload;
+  const pn = p && typeof p === "object" ? (p as Record<string, unknown>).name : undefined;
+  return (typeof pn === "string" && pn) || (r as { name?: string | null }).name || undefined;
+}
+
+async function telegramOn(): Promise<boolean> {
+  const { value, missing } = await getTelegramConfig();
+  return !missing && tgReady(value);
 }
 
 // 어떤 토픽이든 하나라도 연결됐는지
@@ -60,7 +90,7 @@ export async function runTick(): Promise<{ ok: boolean; report: string[] }> {
   const report: string[] = [];
   const { value: cfg, missing } = await getJandiConfig();
   if (missing) return { ok: false, report: ["설정 테이블(crm_settings)이 없습니다."] };
-  if (!anyUrl(cfg)) return { ok: true, report: ["잔디 웹훅 미설정"] };
+  if (!anyUrl(cfg) && !(await telegramOn())) return { ok: true, report: ["잔디 · 텔레그램 미설정"] };
 
   const { value: state } = await getJandiState();
   const nowMs = Date.now();
@@ -98,7 +128,9 @@ export async function runTick(): Promise<{ ok: boolean; report: string[] }> {
   if (briefDue) next.lastBriefDate = today;
   // 3) 로그인 실패 급증 (10분 내 5회 이상, 30분에 1번만)
   let fails: { actor: string | null; detail: string | null; ip: string | null }[] = [];
-  if (cfg.admin && validJandiUrl(cfg.adminUrl)) {
+  const { value: tgCfg } = await getTelegramConfig();
+  const tgAdmin = tgReady(tgCfg) && !!tgCfg.adminChat;
+  if (cfg.admin && (validJandiUrl(cfg.adminUrl) || tgAdmin)) {
     const quiet = !state.lastFailAlertAt || nowMs - Date.parse(state.lastFailAlertAt) > 30 * 60 * 1000;
     if (quiet) {
       const { data } = await supabase
@@ -121,30 +153,32 @@ export async function runTick(): Promise<{ ok: boolean; report: string[] }> {
     // 고객이 고른 전시장 토픽으로만 (전시장 토픽이 없을 때만 전체 영업팀 → 관리자 토픽으로 대신)
     const route = routeUrl(cfg, branch);
     jobs.push(sendTo(route.url, msg, report, `새 방문예약(${route.label})`));
+    jobs.push(tgNotify(branch, msg, { kind: "v", id: String(r.id), name: vName(r) }, report, "새 방문예약"));
   }
+  jobs.push(remindUnacked(report));
   if (briefDue) jobs.push(sendDailyBrief(cfg, report));
   if (fails.length) {
-    jobs.push(
-      sendTo(
-        cfg.adminUrl,
+    const failMsg: JandiMessage = {
+      body: `🚨 최근 10분 동안 로그인 실패 ${fails.length}건`,
+      color: "#DC2626",
+      sections: [
         {
-          body: `🚨 최근 10분 동안 로그인 실패 ${fails.length}건`,
-          color: "#DC2626",
-          sections: [
-            {
-              title: "실패 기록",
-              description: fails
-                .slice(0, 15)
-                .map((f) => `• ${f.actor ?? "-"} · ${f.detail ?? ""} · IP ${f.ip ?? "-"}`)
-                .join("\n"),
-            },
-            { title: "관리자 화면", description: appUrl("/admin/manage?kind=login_failed") },
-          ],
+          title: "실패 기록",
+          description: fails
+            .slice(0, 15)
+            .map((f) => `• ${f.actor ?? "-"} · ${f.detail ?? ""} · IP ${f.ip ?? "-"}`)
+            .join("\n"),
         },
-        report,
-        "로그인 실패 경고"
-      )
-    );
+        { title: "관리자 화면", description: appUrl("/admin/manage?kind=login_failed") },
+      ],
+    };
+    jobs.push(sendTo(cfg.adminUrl, failMsg, report, "로그인 실패 경고"));
+    if (tgAdmin)
+      jobs.push(
+        sendTelegram(tgCfg, tgCfg.adminChat, failMsg).then((r) => {
+          report.push(`텔레그램 로그인 실패 경고: ${r.ok ? "전송" : `실패(${r.error})`}`);
+        })
+      );
   }
   await Promise.all(jobs);
 
@@ -163,12 +197,13 @@ export async function notifyNewCall(
   c: Pick<CallLead, "name" | "phone" | "inquiry" | "region" | "salesperson" | "called_at"> & {
     grade?: string | null;
     branch?: string | null;
+    id?: string | null;
   },
   by: string | null
 ) {
   try {
     const { value: cfg, missing } = await getJandiConfig();
-    if (missing || !cfg.newCall || !anyUrl(cfg)) return;
+    if (missing || !cfg.newCall) return;
     // 넘길 전시장이 정해졌으면 그 전시장 토픽 → 아니면 담당 영업사원의 전시장 토픽 (둘 다 없으면 전체/관리자)
     let branch: string | null = c.branch ?? null;
     if (!branch && c.salesperson) {
@@ -179,6 +214,7 @@ export async function notifyNewCall(
     const msg = newCallMessage(c, by);
     // 전시장 토픽으로만 (전체 영업팀 토픽에 중복으로 올리지 않음)
     if (route.url) await sendJandi(route.url, msg);
+    await tgNotify(branch, msg, c.id ? { kind: "c", id: String(c.id), name: c.name || undefined } : undefined);
   } catch {
     /* 알림 실패는 등록에 영향 없음 */
   }
@@ -188,16 +224,16 @@ export async function notifyNewCall(
 export async function notifyCallHandoff(
   c: Pick<CallLead, "name" | "phone" | "inquiry" | "region" | "salesperson" | "called_at" | "memo"> & {
     grade?: string | null;
+    id?: string | null;
   },
   branch: string,
   by: string | null
 ) {
   try {
     const { value: cfg, missing } = await getJandiConfig();
-    if (missing || !anyUrl(cfg)) return;
+    if (missing) return;
     const route = routeUrl(cfg, branch);
-    if (!route.url) return;
-    await sendJandi(route.url, {
+    const msg: JandiMessage = {
       body: `📨 대표번호 문의가 [${branch}]으로 넘어왔습니다 — ${c.name || "(이름없음)"}`,
       color: "#6366F1",
       sections: [
@@ -216,7 +252,9 @@ export async function notifyCallHandoff(
         },
         { title: "대표번호 고객 보기", description: appUrl(`/admin/calls/main?branch=${encodeURIComponent(branch)}`) },
       ],
-    });
+    };
+    if (route.url) await sendJandi(route.url, msg);
+    await tgNotify(branch, msg, c.id ? { kind: "c", id: String(c.id), name: c.name || undefined } : undefined);
   } catch {
     /* 알림 실패는 이관에 영향 없음 */
   }
@@ -226,15 +264,16 @@ export async function notifyCallHandoff(
 export async function notifyVisitHandoff(r: VisitReservation, branch: string, by: string | null) {
   try {
     const { value: cfg, missing } = await getJandiConfig();
-    if (missing || !anyUrl(cfg)) return;
+    if (missing) return;
     const route = routeUrl(cfg, branch);
-    if (!route.url) return;
     const { msg } = newVisitMessage(r);
-    await sendJandi(route.url, {
+    const out: JandiMessage = {
       ...msg,
       body: `📨 방문예약 고객이 [${branch}]으로 넘어왔습니다 — ${msg.body.split("— ")[1] ?? ""}${by ? `\n넘긴 사람: ${by}` : ""}`,
       color: "#6366F1",
-    });
+    };
+    if (route.url) await sendJandi(route.url, out);
+    await tgNotify(branch, out, { kind: "v", id: String(r.id), name: vName(r) });
   } catch {
     /* 알림 실패는 넘기기에 영향 없음 */
   }

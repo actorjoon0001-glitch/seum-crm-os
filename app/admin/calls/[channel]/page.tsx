@@ -1,4 +1,6 @@
 import Link from "next/link";
+import AckLine from "@/app/admin/AckLine";
+import { getRecentAcks } from "@/lib/acks";
 import { notFound, redirect } from "next/navigation";
 import { createServiceClient, hasSupabaseEnv, CALLS_TABLE } from "@/lib/supabase/server";
 import { requireAuth } from "@/lib/require-auth";
@@ -109,7 +111,7 @@ export default async function CallsPage({
   const { error: branchColErr } = await supabase.from(CALLS_TABLE).select("branch,handed_at").limit(1);
   const branchColMissing = !isMobile && !!branchColErr && /branch|handed_at/.test(branchColErr.message);
   // 넘길 전시장 목록 (세움OS 직원 소속 전시장)
-  const branches = isMobile ? [] : await getBranches(supabase);
+  const [branches, acks] = await Promise.all([isMobile ? Promise.resolve([] as string[]) : getBranches(supabase), getRecentAcks("c")]);
   // 같은 연락처가 방문예약 · 다른 전화 · 고객DB 에도 있는지
   const phoneIdx = await buildPhoneIndex(supabase);
 
@@ -300,6 +302,7 @@ export default async function CallsPage({
                     {!isMobile && (
                       <td className="px-1.5 py-2">
                         <CallBranchSelect id={r.id} branch={r.branch} handedAt={r.handed_at} branches={branches} />
+                        <AckLine ack={acks.get(String(r.id))} />
                       </td>
                     )}
                     <td className="px-2.5 py-2">
