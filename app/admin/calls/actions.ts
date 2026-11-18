@@ -73,10 +73,10 @@ export async function createCallLead(
     extra.branch = branch;
     extra.handed_at = new Date().toISOString();
   }
-  let { error } = await supabase.from(CALLS_TABLE).insert({ ...row, ...extra });
+  let { data: inserted, error } = await supabase.from(CALLS_TABLE).insert({ ...row, ...extra }).select("id").single();
   // 고객등급 · 전시장 컬럼을 아직 추가하지 않았으면 그 값 없이 저장
   if (error && Object.keys(extra).length && /grade|branch|handed_at/.test(error.message))
-    ({ error } = await supabase.from(CALLS_TABLE).insert(row));
+    ({ data: inserted, error } = await supabase.from(CALLS_TABLE).insert(row).select("id").single());
   if (error) return { ok: false, error: `저장 실패: ${error.message}` };
 
   // 대표번호 문의는 잔디 영업팀 토픽으로 바로 알림
@@ -91,6 +91,7 @@ export async function createCallLead(
         called_at: calledAt,
         grade,
         branch,
+        id: (inserted as { id?: string } | null)?.id ?? null,
       },
       await currentUserName()
     );
