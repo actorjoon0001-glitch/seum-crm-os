@@ -23,12 +23,12 @@ async function sendTo(url: string | undefined, msg: JandiMessage, report: string
   report.push(`${label}: ${r.ok ? "전송" : `실패(${r.error})`}`);
 }
 
-// 아침 브리핑 전송 (영업팀 + 전시장별 + 관리자) — 토픽별 동시 전송으로 빠르게
+// 아침 브리핑 전송 (전시장별 + 관리자) — 토픽별 동시 전송으로 빠르게
+// 전체 영업팀 토픽으로는 보내지 않음 (전시장마다 자기 토픽으로 받음)
 export async function sendDailyBrief(cfg: JandiConfig, report: string[]) {
   const brief = await buildDailyBrief(createServiceClient());
   const jobs: Promise<void>[] = [];
   if (cfg.brief) {
-    jobs.push(sendTo(cfg.teamUrl, brief.team, report, "브리핑(영업팀)"));
     for (const [branch, url] of Object.entries(cfg.branchUrls ?? {})) {
       const msg = brief.branches.get(branch);
       if (msg) jobs.push(sendTo(url, msg, report, `브리핑(${branch})`));
