@@ -13,6 +13,7 @@ export interface JandiConfig {
   newVisit: boolean; // 2. 새 방문예약 알림
   newCall: boolean; // 2. 대표번호 문의 등록 알림
   admin: boolean; // 3. 관리자 알림 (일일 요약 · 로그인 실패 급증)
+  visitToAdmin: boolean; // 새 방문예약을 관리자 토픽에도 한 번 더 (빠짐없이 확인용)
 }
 
 export const DEFAULT_JANDI: JandiConfig = {
@@ -25,6 +26,7 @@ export const DEFAULT_JANDI: JandiConfig = {
   newVisit: true,
   newCall: true,
   admin: true,
+  visitToAdmin: true,
 };
 
 export interface JandiState {

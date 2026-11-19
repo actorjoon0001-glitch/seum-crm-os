@@ -296,7 +296,7 @@ export default async function ManagePage({ searchParams }: { searchParams: Searc
             branches={allBranches.map((b) => ({ branch: b, state: urlState(jandi.branchUrls?.[b]) }))}
             briefHour={jandi.briefHour}
             briefMinute={jandi.briefMinute}
-            toggles={{ brief: jandi.brief, newVisit: jandi.newVisit, newCall: jandi.newCall, admin: jandi.admin }}
+            toggles={{ brief: jandi.brief, newVisit: jandi.newVisit, newCall: jandi.newCall, admin: jandi.admin, visitToAdmin: jandi.visitToAdmin }}
             lastTickAt={jandiState.lastTickAt}
             lastBriefDate={jandiState.lastBriefDate}
             recent={jandiState.recent ?? []}

@@ -49,6 +49,7 @@ export async function saveJandi(_prev: ActionResult | null, formData: FormData):
     newVisit: formData.get("newVisit") != null,
     newCall: formData.get("newCall") != null,
     admin: formData.get("admin") != null,
+    visitToAdmin: formData.get("visitToAdmin") != null,
   };
   // 전시장 칸: 이름은 값(branchName_i)으로, URL 은 branchUrl_i 로 받음
   // (폼 필드 '이름'에 한글을 쓰면 전송 중 깨지므로 번호로 구분)
