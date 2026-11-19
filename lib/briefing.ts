@@ -115,7 +115,7 @@ export async function buildDailyBrief(supabase: SupabaseClient): Promise<BriefRe
         description: lines(
           hc.map(
             (c) =>
-              `• ${branch ? "" : `[${c.branch}] `}${c.name || "(이름없음)"}${c.phone ? ` ${c.phone}` : ""}${c.inquiry ? ` · ${c.inquiry}` : ""} · ${c.salesperson ? `담당 ${c.salesperson}` : "⚠ 담당 미배정"}`
+              `• ${branch ? "" : `[${c.branch}] `}${c.name || "(이름없음)"}${c.phone ? ` ${c.phone}` : ""}${c.inquiry ? ` · ${c.inquiry}` : ""}${c.salesperson ? ` · 담당 ${c.salesperson}` : ""}`
           ),
           "없음"
         ),
@@ -233,7 +233,7 @@ export function newCallMessage(
           c.region && `지역: ${c.region}`,
           c.inquiry && `문의: ${c.inquiry}`,
           c.grade && `고객등급: ${c.grade}`,
-          `담당: ${c.salesperson || "⚠ 미배정"}`,
+          c.salesperson && `담당: ${c.salesperson}`,
           by && `등록: ${by}`,
         ]
           .filter(Boolean)

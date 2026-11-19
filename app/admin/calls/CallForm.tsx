@@ -65,29 +65,24 @@ export default function CallForm({
           <span className="text-xs text-gray-500">연락처</span>
           <input name="phone" inputMode="tel" placeholder="010-0000-0000" className={input} />
         </label>
-        <label>
-          <span className="text-xs text-gray-500">
-            {isMobile ? "영업사원 *" : "담당 영업사원"}
-          </span>
-          <input
-            name="salesperson"
-            list={`sp-${channel}`}
-            placeholder={isMobile ? "본인 이름" : "배정 담당자"}
-            className={input}
-          />
-          <datalist id={`sp-${channel}`}>
-            {salespeople.map((s) => (
-              <option key={s} value={s} />
-            ))}
-          </datalist>
-        </label>
+        {isMobile && (
+          <label>
+            <span className="text-xs text-gray-500">영업사원 *</span>
+            <input name="salesperson" list={`sp-${channel}`} placeholder="본인 이름" className={input} />
+            <datalist id={`sp-${channel}`}>
+              {salespeople.map((s) => (
+                <option key={s} value={s} />
+              ))}
+            </datalist>
+          </label>
+        )}
         <label>
           <span className="text-xs text-gray-500">지역 / 토지위치</span>
           <input name="region" placeholder="예: 양평 서종면" className={input} />
         </label>
-        <label className="col-span-2 md:col-span-2 xl:col-span-2">
-          <span className="text-xs text-gray-500">문의 내용</span>
-          <input name="inquiry" placeholder="예: 30평 단층 견적 문의" className={input} />
+        <label className={`col-span-2 md:col-span-2 ${isMobile ? "xl:col-span-2" : "xl:col-span-3"}`}>
+          <span className="text-xs text-gray-500">{isMobile ? "문의 내용" : "문의 내용 · 메모"}</span>
+          <input name="inquiry" placeholder="예: 30평 단층 견적 문의 / 다음 주 재통화" className={input} />
         </label>
         <label>
           <span className="text-xs text-gray-500">고객등급</span>
@@ -113,10 +108,12 @@ export default function CallForm({
             </select>
           </label>
         )}
-        <label className={`col-span-2 md:col-span-3 ${isMobile ? "xl:col-span-7" : "xl:col-span-6"}`}>
-          <span className="text-xs text-gray-500">직원 메모</span>
-          <input name="memo" placeholder="통화 내용, 다음 연락 일정 등" className={input} />
-        </label>
+        {isMobile && (
+          <label className="col-span-2 md:col-span-3 xl:col-span-7">
+            <span className="text-xs text-gray-500">직원 메모</span>
+            <input name="memo" placeholder="통화 내용, 다음 연락 일정 등" className={input} />
+          </label>
+        )}
         <div className="flex items-end">
           <Submit />
         </div>

@@ -181,18 +181,20 @@ export default async function CallsPage({
           placeholder="이름 · 연락처 · 지역 · 내용 검색"
           className="w-64 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm outline-none focus:border-seum"
         />
-        <select
-          name="sp"
-          defaultValue={sp}
-          className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-seum"
-        >
-          <option value="">전체 영업사원</option>
-          {salespeople.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
+        {isMobile && (
+          <select
+            name="sp"
+            defaultValue={sp}
+            className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-seum"
+          >
+            <option value="">전체 영업사원</option>
+            {salespeople.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        )}
         <select
           name="status"
           defaultValue={status}
@@ -252,12 +254,12 @@ export default async function CallsPage({
               <col className="w-[8%]" />{/* 통화일시 */}
               <col className="w-[11%]" />{/* 고객 */}
               <col className="w-[10%]" />{/* 지역 */}
-              <col className={isMobile ? "w-[19%]" : "w-[16%]"} />{/* 문의 내용 */}
+              <col className={isMobile ? "w-[19%]" : "w-[38%]"} />{/* 문의 내용 */}
               <col className="w-[8%]" />{/* 상태 */}
               <col className="w-[5%]" />{/* 고객등급 */}
-              {!isMobile && <col className="w-[9%]" />}{/* 넘길 전시장 */}
-              <col className="w-[9%]" />{/* 영업사원 */}
-              <col className={isMobile ? "w-[24%]" : "w-[18%]"} />{/* 직원 메모 */}
+              {!isMobile && <col className="w-[13%]" />}{/* 넘길 전시장 */}
+              {isMobile && <col className="w-[9%]" />}{/* 영업사원 */}
+              {isMobile && <col className="w-[24%]" />}{/* 직원 메모 */}
               <col className="w-[6%]" />{/* 삭제 */}
             </colgroup>
             <thead className="border-b border-gray-100 bg-gray-50 text-gray-500">
@@ -269,8 +271,8 @@ export default async function CallsPage({
                 <th className="px-2.5 py-2 font-medium">상태</th>
                 <th className="px-2.5 py-2 font-medium">고객등급</th>
                 {!isMobile && <th className="px-2.5 py-2 font-medium">넘길 전시장</th>}
-                <th className="px-2.5 py-2 font-medium">{isMobile ? "영업사원" : "담당 영업사원"}</th>
-                <th className="px-2.5 py-2 font-medium">직원 메모</th>
+                {isMobile && <th className="px-2.5 py-2 font-medium">영업사원</th>}
+                {isMobile && <th className="px-2.5 py-2 font-medium">직원 메모</th>}
                 <th className="px-2.5 py-2 font-medium"></th>
               </tr>
             </thead>
@@ -290,8 +292,14 @@ export default async function CallsPage({
                       <DupBadge refs={otherRefs(phoneIdx, r.phone, { kind: channel === "main" ? "main" : "mobile", id: r.id })} />
                     </td>
                     <td className="break-words px-2.5 py-2 text-gray-600">{r.region || "-"}</td>
-                    <td className="whitespace-pre-wrap break-words px-2.5 py-2 text-gray-600">
-                      {r.inquiry || "-"}
+                    <td className="px-2.5 py-2 text-gray-600">
+                      {/* 대표번호: 문의 내용을 바로 고쳐 쓸 수 있게 (메모도 여기에) */}
+                      <CallTextInput id={r.id} field="inquiry" value={r.inquiry} placeholder="문의 내용 · 메모" multiline />
+                      {!isMobile && r.memo && (
+                        <div className="mt-1 whitespace-pre-wrap break-words text-[11px] text-gray-400" title="예전에 적은 직원 메모">
+                          메모: {r.memo}
+                        </div>
+                      )}
                     </td>
                     <td className="px-2.5 py-2">
                       <CallStatusSelect id={r.id} status={r.status} />
@@ -305,12 +313,16 @@ export default async function CallsPage({
                         <AckLine ack={acks.get(String(r.id))} />
                       </td>
                     )}
-                    <td className="px-2.5 py-2">
-                      <CallTextInput id={r.id} field="salesperson" value={r.salesperson} placeholder="영업사원" />
-                    </td>
-                    <td className="px-2.5 py-2">
-                      <CallTextInput id={r.id} field="memo" value={r.memo} placeholder="직원 메모" multiline />
-                    </td>
+                    {isMobile && (
+                      <td className="px-2.5 py-2">
+                        <CallTextInput id={r.id} field="salesperson" value={r.salesperson} placeholder="영업사원" />
+                      </td>
+                    )}
+                    {isMobile && (
+                      <td className="px-2.5 py-2">
+                        <CallTextInput id={r.id} field="memo" value={r.memo} placeholder="직원 메모" multiline />
+                      </td>
+                    )}
                     <td className="px-2.5 py-2 text-right">
                       <CallDeleteButton id={r.id} name={name} />
                     </td>

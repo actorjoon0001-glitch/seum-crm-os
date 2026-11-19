@@ -244,7 +244,7 @@ export async function notifyCallHandoff(
             c.inquiry && `문의: ${c.inquiry}`,
             c.grade && `고객등급: ${c.grade}`,
             c.memo && `메모: ${c.memo}`,
-            `담당: ${c.salesperson || "⚠ 미배정 — 전시장에서 담당자를 정해 주세요"}`,
+            c.salesperson && `담당: ${c.salesperson}`,
             by && `넘긴 사람: ${by}`,
           ]
             .filter(Boolean)

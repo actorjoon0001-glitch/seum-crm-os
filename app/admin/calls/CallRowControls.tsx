@@ -137,7 +137,7 @@ export function CallTextInput({
   multiline,
 }: {
   id: string;
-  field: "salesperson" | "memo";
+  field: "salesperson" | "memo" | "inquiry";
   value: string | null;
   placeholder: string;
   multiline?: boolean;
