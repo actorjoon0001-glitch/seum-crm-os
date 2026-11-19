@@ -151,7 +151,9 @@ export async function runTick(): Promise<{ ok: boolean; report: string[] }> {
   for (const r of newVisits) {
     const { msg, branch } = newVisitMessage(r);
     // 고객이 고른 전시장 토픽으로만 (전시장 토픽이 없을 때만 전체 영업팀 → 관리자 토픽으로 대신)
-    const route = routeUrl(cfg, branch);
+    // 전시장을 고르지 않은 예약은 관리자 토픽으로 바로 (관리자가 전시장으로 넘김)
+    const route =
+      !branch && validJandiUrl(cfg.adminUrl) ? { url: cfg.adminUrl, label: "관리자(전시장 미선택)" } : routeUrl(cfg, branch);
     jobs.push(sendTo(route.url, msg, report, `새 방문예약(${route.label})`));
     jobs.push(tgNotify(branch, msg, { kind: "v", id: String(r.id), name: vName(r) }, report, "새 방문예약"));
     // 빠짐없이 확인할 수 있게 관리자 토픽에도 한 번 더 (전시장 토픽이 곧 관리자 토픽이면 생략)
