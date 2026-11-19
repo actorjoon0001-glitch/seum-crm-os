@@ -154,6 +154,17 @@ export async function runTick(): Promise<{ ok: boolean; report: string[] }> {
     const route = routeUrl(cfg, branch);
     jobs.push(sendTo(route.url, msg, report, `새 방문예약(${route.label})`));
     jobs.push(tgNotify(branch, msg, { kind: "v", id: String(r.id), name: vName(r) }, report, "새 방문예약"));
+    // 빠짐없이 확인할 수 있게 관리자 토픽에도 한 번 더 (전시장 토픽이 곧 관리자 토픽이면 생략)
+    if (cfg.visitToAdmin && validJandiUrl(cfg.adminUrl) && route.url !== cfg.adminUrl)
+      jobs.push(
+        sendTo(cfg.adminUrl, { ...msg, body: `[${branch ?? "전시장 미선택"}] ${msg.body}` }, report, "새 방문예약(관리자)")
+      );
+    if (cfg.visitToAdmin && tgCfg.adminChat && tgReady(tgCfg) && (branch ? tgCfg.chats?.[branch] : "") && tgCfg.chats?.[branch!] !== tgCfg.adminChat)
+      jobs.push(
+        sendTelegram(tgCfg, tgCfg.adminChat, { ...msg, body: `[${branch}] ${msg.body}` }).then((t) => {
+          report.push(`텔레그램 새 방문예약(관리자): ${t.ok ? "전송" : `실패(${t.error})`}`);
+        })
+      );
   }
   jobs.push(remindUnacked(report));
   if (briefDue) jobs.push(sendDailyBrief(cfg, report));

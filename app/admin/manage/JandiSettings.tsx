@@ -95,7 +95,7 @@ export default function JandiSettings({
   branches: { branch: string; state: UrlState }[];
   briefHour: number;
   briefMinute: number;
-  toggles: { brief: boolean; newVisit: boolean; newCall: boolean; admin: boolean };
+  toggles: { brief: boolean; newVisit: boolean; newCall: boolean; admin: boolean; visitToAdmin: boolean };
   lastTickAt?: string;
   lastBriefDate?: string;
   recent?: { at: string; text: string }[];
@@ -159,6 +159,7 @@ export default function JandiSettings({
           [
             ["brief", "1. 매일 아침 브리핑", toggles.brief],
             ["newVisit", "2. 새 방문예약 알림", toggles.newVisit],
+            ["visitToAdmin", "↳ 새 방문예약 관리자 토픽에도", toggles.visitToAdmin],
             ["newCall", "2. 대표번호 문의 알림", toggles.newCall],
             ["admin", "3. 관리자 알림", toggles.admin],
           ] as const
